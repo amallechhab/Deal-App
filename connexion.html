@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f5f1e8">
+  <meta name="description" content="Connectez-vous à votre compte DEAL pour retrouver vos favoris et échanger en toute confiance.">
+  <title>DEAL — Connexion</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="script.js?v=2" defer></script>
+</head>
+<body data-page="login">
+  <header class="site-header">
+    <a class="brand" href="index.html" aria-label="DEAL, accueil">
+      <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none"><path d="M10 18.5a16 16 0 0 1 26-6l3 3.5M38 8v8h-8M38 29.5a16 16 0 0 1-26 6L9 32m0 8v-8h8" /><path d="m18 25 4 4 9-11" /></svg></span>
+      <span class="wordmark">deal<span>.</span></span>
+    </a>
+    <nav class="main-nav" aria-label="Navigation principale"><a href="index.html">Accueil</a><a href="annonces.html">Annonces</a></nav>
+    <div class="header-actions"><a class="button button-outline header-login" href="annonces.html">Explorer les annonces</a></div>
+  </header>
+  <main class="page-shell login-page">
+    <section class="login-card">
+      <div class="login-brand">
+        <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none"><path d="M10 18.5a16 16 0 0 1 26-6l3 3.5M38 8v8h-8M38 29.5a16 16 0 0 1-26 6L9 32m0 8v-8h8" /><path d="m18 25 4 4 9-11" /></svg></span>
+        <span class="wordmark">deal<span>.</span></span>
+      </div>
+      <h1>Heureux de vous revoir.</h1>
+      <p class="login-intro">Connectez-vous pour retrouver vos favoris et échanger en toute confiance.</p>
+      <form id="login-form">
+        <label for="email">Adresse e-mail</label>
+        <div class="input-wrap"><span class="field-icon" aria-hidden="true">✉</span><input id="email" name="email" type="email" placeholder="vous@exemple.com" autocomplete="email" required></div>
+        <label for="password">Mot de passe</label>
+        <div class="input-wrap"><span class="field-icon lock-icon" aria-hidden="true">♙</span><input id="password" name="password" type="password" placeholder="Votre mot de passe" autocomplete="current-password" required minlength="6"><button class="password-toggle" type="button" aria-label="Afficher le mot de passe" aria-pressed="false">◉</button></div>
+        <button class="forgot-link" id="forgot-password" type="button">Mot de passe oublié ?</button>
+        <button class="button button-primary login-submit" type="submit">Se connecter</button>
+      </form>
+      <div class="signup-prompt"><span>Pas encore de compte ?</span><button id="create-account" type="button">Créer un compte</button></div>
+      <p class="login-privacy"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 19 6v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z" /><path d="m9 12 2 2 4-4" /></svg> Vos données restent privées et protégées.</p>
+    </section>
+  </main>
+  <footer class="site-footer"><a class="brand footer-brand" href="index.html"><span class="wordmark">deal<span>.</span></span></a><p>Les bonnes affaires, en toute confiance.</p><span>© 2026 DEAL</span></footer>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>

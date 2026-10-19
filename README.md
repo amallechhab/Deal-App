@@ -2,6 +2,16 @@
 # Présentation
 DEAL est une application mobile permettant aux utilisateurs de consulter, rechercher, publier et gérer des annonces.
 
+# Prototype web
+Le prototype est organisé en pages séparées et responsive :
+
+• `index.html` : accueil et annonces à découvrir
+• `annonces.html` : liste complète, recherche et filtres par catégorie
+• `produit.html?id=golf` : détail d’une annonce (identifiants disponibles : `golf`, `iphone`, `apartment`, `bag`)
+• `connexion.html` : écran de connexion
+
+Le prototype est réalisé en HTML, CSS et JavaScript natifs, sans framework ni dépendance à installer. Pour le lancer, ouvrez `index.html` dans un navigateur. Les photos de démonstration sont chargées depuis Unsplash ; les actions nécessitant un compte affichent un message car le prototype n’est pas relié à un service d’authentification ou à une base de données.
+
 # Outils Utilisés
 • Figma
 • Jira
