@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f5f1e8">
+  <title>DEAL — Publier une annonce</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-page="publish">
+  <header class="site-header">
+    <a class="brand" href="index.html" aria-label="DEAL, accueil">
+      <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none"><path d="M10 18.5a16 16 0 0 1 26-6l3 3.5M38 8v8h-8M38 29.5a16 16 0 0 1-26 6L9 32m0 8v-8h8" /><path d="m18 25 4 4 9-11" /></svg></span>
+      <span class="wordmark">deal<span>.</span></span>
+    </a>
+    <nav class="main-nav" aria-label="Navigation principale">
+      <a href="index.html">Accueil</a>
+      <a href="annonces.html">Annonces</a>
+      <a class="is-active" href="publier.html">Publier</a>
+    </nav>
+    <div class="header-actions">
+      <a class="button button-outline header-login" href="connexion.html">Se connecter</a>
+    </div>
+  </header>
+
+  <main class="page-shell publish-page">
+    <div class="breadcrumbs"><a href="index.html">Accueil</a><span aria-hidden="true">/</span><span>Publier</span></div>
+    <h1 class="publish-title">Publier une annonce</h1>
+
+    <form id="publish-form" class="publish-form" enctype="multipart/form-data">
+      <label>Titre<input name="titre" required maxlength="150" placeholder="Ex : iPhone 13 · 128 Go"></label>
+      <label>Prix (MAD)<input name="prix" type="number" step="0.01" min="0" required placeholder="6500"></label>
+      <label>Ville<input name="ville" required maxlength="100" placeholder="Rabat"></label>
+      <label>Catégorie
+        <select name="categorie" required>
+          <option value="voitures">Voitures</option>
+          <option value="immobilier">Immobilier</option>
+          <option value="telephones">Téléphones</option>
+          <option value="mode">Mode</option>
+        </select>
+      </label>
+      <label>Description<textarea name="description" rows="4" placeholder="Décrivez votre article"></textarea></label>
+      <label>Photo<input name="photo" type="file" accept="image/jpeg,image/png,image/webp" required></label>
+      <button class="button button-primary" id="publish-button" type="submit">Publier</button>
+      <p id="message" class="publish-message" aria-live="polite"></p>
+    </form>
+  </main>
+
+  <footer class="site-footer">
+    <a class="brand footer-brand" href="index.html"><span class="wordmark">deal<span>.</span></span></a>
+    <span>© 2026 DEAL · Le commerce, en toute confiance.</span>
+  </footer>
+
+  <script>
+    const form = document.getElementById('publish-form');
+    const message = document.getElementById('message');
+    const button = document.getElementById('publish-button');
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      button.disabled = true;
+      message.textContent = 'Envoi en cours...';
+      try {
+        const response = await fetch('/api/publier.php', { method: 'POST', body: new FormData(form) });
+        const data = await response.json();
+        if (data.success) {
+          message.textContent = 'Annonce publiée ✓';
+          form.reset();
+        } else {
+          message.textContent = data.error || 'Erreur';
+        }
+      } catch {
+        message.textContent = 'Erreur réseau, réessayez.';
+      }
+      button.disabled = false;
+    });
+  </script>
+</body>
+</html>
