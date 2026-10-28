@@ -1,4 +1,5 @@
-const ANNONCES = [
+// Annonces de secours / démo (gardées pour que le site reste rempli)
+const FALLBACK_ANNONCES = [
   {
     id: "golf",
     cat: "voitures",
@@ -49,6 +50,15 @@ const ANNONCES = [
   }
 ];
 
+const CATEGORY_LABELS = {
+  voitures: "Voitures",
+  immobilier: "Immobilier",
+  telephones: "Téléphones",
+  mode: "Mode"
+};
+
+let ANNONCES = [];
+
 const page = document.body.dataset.page;
 const toast = document.getElementById("toast");
 let toastTimer;
@@ -60,6 +70,44 @@ function showToast(message) {
   window.clearTimeout(toastTimer);
   toastTimer = window.setTimeout(() => toast.classList.remove("is-visible"), 2600);
 }
+
+/* ---------- Données (API PHP -> Aiven) ---------- */
+
+function formatPrice(value) {
+  const number = Number(value);
+  if (Number.isNaN(number)) return `${value} MAD`;
+  return `${number.toLocaleString("fr-FR")} MAD`;
+}
+
+function fromApi(row) {
+  const label = CATEGORY_LABELS[row.categorie] || row.categorie;
+  return {
+    id: String(row.id),
+    cat: row.categorie,
+    title: row.titre,
+    price: formatPrice(row.prix),
+    city: row.ville,
+    photos: [row.photo],
+    alt: row.titre,
+    description: row.description || "Aucune description fournie.",
+    specs: [label, row.ville],
+    categoryLabel: label
+  };
+}
+
+async function loadAnnonces() {
+  try {
+    const response = await fetch("/api/liste.php");
+    if (!response.ok) throw new Error("API indisponible");
+    const data = await response.json();
+    if (!Array.isArray(data)) throw new Error("Réponse invalide");
+    return [...data.map(fromApi), ...FALLBACK_ANNONCES];
+  } catch {
+    return FALLBACK_ANNONCES;
+  }
+}
+
+/* ---------- Favoris ---------- */
 
 function getFavorites() {
   try {
@@ -77,9 +125,14 @@ function saveFavorites(favorites) {
   }
 }
 
+/* ---------- Photos ---------- */
+
 function photoUrl(photo, width = 700) {
+  if (/^https?:\/\//i.test(photo)) return photo; // URL Cloudinary
   return `https://images.unsplash.com/${photo}?auto=format&fit=crop&w=${width}&q=85`;
 }
+
+/* ---------- Cartes ---------- */
 
 function createListingCard(listing, favorites) {
   const card = document.createElement("article");
@@ -146,8 +199,10 @@ function renderListingGrid(container, listings) {
   container.replaceChildren(...listings.map((listing) => createListingCard(listing, favorites)));
 }
 
+/* ---------- Pages ---------- */
+
 function initHome() {
-  renderListingGrid(document.getElementById("listings"), ANNONCES);
+  renderListingGrid(document.getElementById("listings"), ANNONCES.slice(0, 4));
 }
 
 function initListings() {
@@ -199,8 +254,14 @@ function initListings() {
 function initProduct() {
   const params = new URLSearchParams(window.location.search);
   const selectedListing = ANNONCES.find((listing) => listing.id === params.get("id")) || ANNONCES[0];
-  const detailImage = document.getElementById("detail-image");
   const detailName = document.getElementById("detail-name");
+
+  if (!selectedListing) {
+    detailName.textContent = "Annonce introuvable";
+    return;
+  }
+
+  const detailImage = document.getElementById("detail-image");
   const detailPrice = document.getElementById("detail-price");
   const detailCity = document.getElementById("detail-city");
   const detailDescription = document.getElementById("detail-description");
@@ -208,6 +269,9 @@ function initProduct() {
   const detailCategory = document.querySelector(".detail-category");
   const thumbnails = [...document.querySelectorAll(".thumbnail")];
   const favoriteButton = document.querySelector(".favorite-button");
+  const prevButton = document.querySelector(".gallery-prev");
+  const nextButton = document.querySelector(".gallery-next");
+  const photoCount = selectedListing.photos.length;
   let currentPhoto = 0;
 
   document.title = `DEAL — ${selectedListing.title}`;
@@ -216,26 +280,37 @@ function initProduct() {
   detailCity.textContent = selectedListing.city;
   detailDescription.textContent = selectedListing.description;
   detailCategory.textContent = selectedListing.categoryLabel;
+  document.getElementById("photo-total").textContent = String(photoCount);
   detailSpecifications.replaceChildren(...selectedListing.specs.map((specification) => {
     const chip = document.createElement("span");
     chip.textContent = specification;
     return chip;
   }));
 
+  // Une seule photo (Cloudinary) : on cache miniatures et flèches
+  thumbnails.forEach((thumbnail, index) => {
+    thumbnail.hidden = photoCount <= 1 || index >= photoCount;
+  });
+  if (photoCount <= 1) {
+    prevButton.hidden = true;
+    nextButton.hidden = true;
+  }
+
   function renderPhoto(index) {
-    currentPhoto = (index + selectedListing.photos.length) % selectedListing.photos.length;
+    currentPhoto = (index + photoCount) % photoCount;
     detailImage.src = photoUrl(selectedListing.photos[currentPhoto], 1200);
     detailImage.alt = selectedListing.alt;
     document.getElementById("photo-index").textContent = String(currentPhoto + 1);
     thumbnails.forEach((thumbnail, thumbnailIndex) => {
+      if (thumbnailIndex >= photoCount) return;
       thumbnail.classList.toggle("is-selected", thumbnailIndex === currentPhoto);
       thumbnail.querySelector("img").src = photoUrl(selectedListing.photos[thumbnailIndex], 200);
     });
   }
 
   renderPhoto(0);
-  document.querySelector(".gallery-prev").addEventListener("click", () => renderPhoto(currentPhoto - 1));
-  document.querySelector(".gallery-next").addEventListener("click", () => renderPhoto(currentPhoto + 1));
+  prevButton.addEventListener("click", () => renderPhoto(currentPhoto - 1));
+  nextButton.addEventListener("click", () => renderPhoto(currentPhoto + 1));
   thumbnails.forEach((thumbnail, index) => {
     thumbnail.addEventListener("click", () => renderPhoto(index));
   });
@@ -311,7 +386,17 @@ function initLogin() {
   });
 }
 
-if (page === "home") initHome();
-if (page === "listings") initListings();
-if (page === "product") initProduct();
-if (page === "login") initLogin();
+/* ---------- Démarrage ---------- */
+
+async function start() {
+  if (page === "login") {
+    initLogin();
+    return;
+  }
+  ANNONCES = await loadAnnonces();
+  if (page === "home") initHome();
+  if (page === "listings") initListings();
+  if (page === "product") initProduct();
+}
+
+start();
