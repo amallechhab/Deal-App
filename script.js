@@ -1,4 +1,4 @@
-// Annonces de secours (utilisées seulement si l'API ne répond pas)
+// Annonces de secours / démo (gardées pour que le site reste rempli)
 const FALLBACK_ANNONCES = [
   {
     id: "golf",
@@ -101,7 +101,9 @@ async function loadAnnonces() {
     if (!response.ok) throw new Error("API indisponible");
     const data = await response.json();
     if (!Array.isArray(data)) throw new Error("Réponse invalide");
-    return data.map(fromApi);
+    const real = data.map(fromApi);
+    // Annonces réelles d'abord, puis les annonces de démo
+    return [...real, ...FALLBACK_ANNONCES];
   } catch {
     return FALLBACK_ANNONCES;
   }
@@ -325,78 +327,4 @@ function initProduct() {
 
   favoriteButton.addEventListener("click", () => {
     const favorites = getFavorites();
-    if (favorites.has(selectedListing.id)) favorites.delete(selectedListing.id);
-    else favorites.add(selectedListing.id);
-    saveFavorites(favorites);
-    updateFavoriteButton();
-    showToast(favorites.has(selectedListing.id) ? "Annonce ajoutée aux favoris." : "Annonce retirée des favoris.");
-  });
-
-  document.querySelector(".contact-button").addEventListener("click", () => {
-    showToast("Connectez-vous pour contacter le vendeur.");
-  });
-  document.querySelector(".seller-card").addEventListener("click", () => {
-    showToast("Connectez-vous pour consulter le profil du vendeur.");
-  });
-  document.querySelector(".share-button").addEventListener("click", async () => {
-    const shareData = {
-      title: selectedListing.title,
-      text: `${selectedListing.title} · ${selectedListing.price}`,
-      url: window.location.href
-    };
-    if (navigator.share) {
-      try {
-        await navigator.share(shareData);
-      } catch (error) {
-        if (error.name !== "AbortError") showToast("Impossible de partager cette annonce.");
-      }
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(window.location.href);
-      showToast("Lien de l’annonce copié.");
-    } catch {
-      showToast("Le partage n’est pas disponible sur cet appareil.");
-    }
-  });
-  renderListingGrid(
-    document.getElementById("related-listings"),
-    ANNONCES.filter((listing) => listing.id !== selectedListing.id).slice(0, 3)
-  );
-}
-
-function initLogin() {
-  document.querySelector(".password-toggle").addEventListener("click", (event) => {
-    const button = event.currentTarget;
-    const passwordInput = document.getElementById("password");
-    const reveal = passwordInput.type === "password";
-    passwordInput.type = reveal ? "text" : "password";
-    button.setAttribute("aria-pressed", String(reveal));
-    button.setAttribute("aria-label", reveal ? "Masquer le mot de passe" : "Afficher le mot de passe");
-  });
-  document.getElementById("login-form").addEventListener("submit", (event) => {
-    event.preventDefault();
-    showToast("La connexion sera bientôt disponible.");
-  });
-  document.getElementById("forgot-password").addEventListener("click", () => {
-    showToast("La réinitialisation du mot de passe sera bientôt disponible.");
-  });
-  document.getElementById("create-account").addEventListener("click", () => {
-    showToast("La création de compte sera bientôt disponible.");
-  });
-}
-
-/* ---------- Démarrage ---------- */
-
-async function start() {
-  if (page === "login") {
-    initLogin();
-    return;
-  }
-  ANNONCES = await loadAnnonces();
-  if (page === "home") initHome();
-  if (page === "listings") initListings();
-  if (page === "product") initProduct();
-}
-
-start();
+    if (favorites.has(selectedListing.id))
