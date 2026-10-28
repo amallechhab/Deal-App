@@ -4,15 +4,7 @@ header('Content-Type: application/json; charset=utf-8');
 
 try {
     $pdo = getDatabase();
-    $categorie = $_GET['categorie'] ?? '';
-
-    if ($categorie !== '' && $categorie !== 'all') {
-        $stmt = $pdo->prepare('SELECT * FROM annonces WHERE categorie = ? ORDER BY id DESC');
-        $stmt->execute([$categorie]);
-    } else {
-        $stmt = $pdo->query('SELECT * FROM annonces ORDER BY id DESC');
-    }
-
+    $stmt = $pdo->query('SELECT id, titre, prix, ville, categorie, description, photo FROM annonces ORDER BY id DESC');
     echo json_encode($stmt->fetchAll());
 } catch (Throwable $e) {
     http_response_code(500);
