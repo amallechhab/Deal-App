@@ -1,55 +1,15 @@
-const ANNONCES = [
-  {
-    id: "golf",
-    cat: "voitures",
-    title: "Volkswagen Golf 7",
-    price: "185 000 MAD",
-    city: "Casablanca",
-    photos: ["photo-1503376780353-7e6692767b70", "photo-1492144534655-ae79c964c9d7", "photo-1503736334956-4c8f8e92946d"],
-    alt: "Voiture sportive garée en extérieur",
-    description: "Golf 7 en excellent état, entretenue régulièrement. Climatisation, boîte manuelle et carnet d’entretien disponible. Visible à Casablanca.",
-    specs: ["2018", "Diesel", "92 000 km"],
-    categoryLabel: "Voitures"
-  },
-  {
-    id: "iphone",
-    cat: "telephones",
-    title: "iPhone 13 · 128 Go",
-    price: "6 500 MAD",
-    city: "Rabat",
-    photos: ["photo-1592750475338-74b7b21085ab", "photo-1511707171634-5f897ff02aa9", "photo-1512499617640-c74ae3a79d37"],
-    alt: "Smartphone présenté sur un fond clair",
-    description: "iPhone 13 de 128 Go en très bon état, débloqué et soigneusement entretenu. Remise en main propre possible à Rabat.",
-    specs: ["128 Go", "Très bon état", "Débloqué"],
-    categoryLabel: "Téléphones"
-  },
-  {
-    id: "apartment",
-    cat: "immobilier",
-    title: "Appartement · Guéliz",
-    price: "1 200 000 MAD",
-    city: "Marrakech",
-    photos: ["photo-1600210492486-724fe5c67fb0", "photo-1600607687939-ce8a6c25118c", "photo-1600566753086-00f18fb6b3ea"],
-    alt: "Salon lumineux d’un appartement",
-    description: "Bel appartement lumineux et soigneusement entretenu, dans le quartier recherché de Guéliz. Visite sur rendez-vous à Marrakech.",
-    specs: ["92 m²", "2 chambres", "Meublé"],
-    categoryLabel: "Immobilier"
-  },
-  {
-    id: "bag",
-    cat: "mode",
-    title: "Sac en cuir camel",
-    price: "450 MAD",
-    city: "Rabat",
-    photos: ["photo-1584917865442-de89df76afd3", "photo-1590874103328-eac38a683ce7", "photo-1548036328-c9fa89d128fa"],
-    alt: "Sac à main en cuir couleur camel",
-    description: "Sac en cuir couleur camel, élégant et en excellent état. Disponible à Rabat pour une remise en main propre.",
-    specs: ["Cuir", "Très bon état", "Camel"],
-    categoryLabel: "Mode"
-  }
-];
-
+let ANNONCES = [];
+let session = {user:null,favorites:[]};
 const page = document.body.dataset.page;
+async function api(action,data=null){
+ const options={credentials:'same-origin'};
+ if(data!==null){options.method='POST';options.headers={'Content-Type':'application/json'};options.body=JSON.stringify(data);}
+ const response=await fetch('/api/index?action='+encodeURIComponent(action),options);
+ const result=await response.json();
+ if(!response.ok||!result.ok)throw new Error(result.error||'Erreur du serveur');
+ return result;
+}
+
 const toast = document.getElementById("toast");
 let toastTimer;
 
@@ -61,24 +21,11 @@ function showToast(message) {
   toastTimer = window.setTimeout(() => toast.classList.remove("is-visible"), 2600);
 }
 
-function getFavorites() {
-  try {
-    return new Set(JSON.parse(localStorage.getItem("deal-favorites") || "[]"));
-  } catch {
-    return new Set();
-  }
-}
-
-function saveFavorites(favorites) {
-  try {
-    localStorage.setItem("deal-favorites", JSON.stringify([...favorites]));
-  } catch {
-    showToast("Les favoris ne peuvent pas être enregistrés sur cet appareil.");
-  }
-}
-
+function getFavorites(){return new Set(session.favorites);}
+function saveFavorites(favs){session.favorites=[...favs];}
+function requireLogin(){if(session.user)return true;showToast('Connectez-vous pour continuer.');return false;}
 function photoUrl(photo, width = 700) {
-  return `https://images.unsplash.com/${photo}?auto=format&fit=crop&w=${width}&q=85`;
+  return photo?.startsWith('https://') ? photo : `https://images.unsplash.com/${photo}?auto=format&fit=crop&w=${width}&q=85`;
 }
 
 function createListingCard(listing, favorites) {
@@ -123,11 +70,13 @@ function createListingCard(listing, favorites) {
   favorite.setAttribute("aria-label", isFavorite ? "Retirer des favoris" : "Ajouter aux favoris");
   favorite.setAttribute("aria-pressed", String(isFavorite));
   favorite.textContent = isFavorite ? "♥" : "♡";
-  favorite.addEventListener("click", () => {
+  favorite.addEventListener("click", async () => {
+    if(!requireLogin())return;
     const nextFavorites = getFavorites();
     const willBeFavorite = !nextFavorites.has(listing.id);
     if (willBeFavorite) nextFavorites.add(listing.id);
     else nextFavorites.delete(listing.id);
+    try{await api("favorite",{id:listing.id,enabled:willBeFavorite});}catch(error){showToast(error.message);return;}
     saveFavorites(nextFavorites);
     favorite.setAttribute("aria-label", willBeFavorite ? "Retirer des favoris" : "Ajouter aux favoris");
     favorite.setAttribute("aria-pressed", String(willBeFavorite));
@@ -199,6 +148,7 @@ function initListings() {
 function initProduct() {
   const params = new URLSearchParams(window.location.search);
   const selectedListing = ANNONCES.find((listing) => listing.id === params.get("id")) || ANNONCES[0];
+  if(!selectedListing){showToast("Annonce indisponible.");return;}
   const detailImage = document.getElementById("detail-image");
   const detailName = document.getElementById("detail-name");
   const detailPrice = document.getElementById("detail-price");
@@ -248,17 +198,29 @@ function initProduct() {
   }
   updateFavoriteButton();
 
-  favoriteButton.addEventListener("click", () => {
+  favoriteButton.addEventListener("click", async () => {
+    if(!requireLogin())return;
     const favorites = getFavorites();
     if (favorites.has(selectedListing.id)) favorites.delete(selectedListing.id);
     else favorites.add(selectedListing.id);
+    try{await api("favorite",{id:selectedListing.id,enabled:favorites.has(selectedListing.id)});}catch(error){showToast(error.message);return;}
     saveFavorites(favorites);
     updateFavoriteButton();
     showToast(favorites.has(selectedListing.id) ? "Annonce ajoutée aux favoris." : "Annonce retirée des favoris.");
   });
 
-  document.querySelector(".contact-button").addEventListener("click", () => {
-    showToast("Connectez-vous pour contacter le vendeur.");
+  const sellerName=document.querySelector('.seller-info strong');
+  if(sellerName)sellerName.textContent=selectedListing.sellerName||'Vendeur DEAL';
+  document.querySelector('.verified')?.remove();
+  document.querySelector('.product-tag')?.remove();
+  document.querySelector(".contact-button").addEventListener("click",async()=>{
+   if(!requireLogin())return;
+   if(!selectedListing.sellerActive){showToast('Vendeur de démonstration indisponible.');return;}
+   if(selectedListing.sellerId===session.user.id){showToast('Votre propre annonce.');return;}
+   const message=prompt('Votre message au vendeur :');
+   if(!message)return;
+   try{await api('contact',{id:selectedListing.id,message});showToast('Message envoyé.');}
+   catch(error){showToast(error.message);}
   });
   document.querySelector(".seller-card").addEventListener("click", () => {
     showToast("Connectez-vous pour consulter le profil du vendeur.");
@@ -290,28 +252,95 @@ function initProduct() {
   );
 }
 
-function initLogin() {
-  document.querySelector(".password-toggle").addEventListener("click", (event) => {
-    const button = event.currentTarget;
-    const passwordInput = document.getElementById("password");
-    const reveal = passwordInput.type === "password";
-    passwordInput.type = reveal ? "text" : "password";
-    button.setAttribute("aria-pressed", String(reveal));
-    button.setAttribute("aria-label", reveal ? "Masquer le mot de passe" : "Afficher le mot de passe");
-  });
-  document.getElementById("login-form").addEventListener("submit", (event) => {
-    event.preventDefault();
-    showToast("La connexion sera bientôt disponible.");
-  });
-  document.getElementById("forgot-password").addEventListener("click", () => {
-    showToast("La réinitialisation du mot de passe sera bientôt disponible.");
-  });
-  document.getElementById("create-account").addEventListener("click", () => {
-    showToast("La création de compte sera bientôt disponible.");
-  });
-}
 
-if (page === "home") initHome();
-if (page === "listings") initListings();
-if (page === "product") initProduct();
-if (page === "login") initLogin();
+function initLogin(){
+ const toggle=document.querySelector('.password-toggle');
+ toggle?.addEventListener('click',()=>{const input=document.getElementById('password');input.type=input.type==='password'?'text':'password';});
+ document.getElementById('login-form')?.addEventListener('submit',async e=>{
+ e.preventDefault();const button=e.currentTarget.querySelector('[type=submit]');button.disabled=true;
+ try{await api('login',{email:document.getElementById('email').value,password:document.getElementById('password').value});location.href='mes-annonces.html';}
+ catch(err){showToast(err.message);button.disabled=false;}
+ });
+ document.getElementById('create-account')?.addEventListener('click',()=>location.href='inscription.html');
+ document.getElementById('forgot-password')?.addEventListener('click',()=>showToast('Réinitialisation non disponible.'));
+}
+function initSignup(){
+ document.getElementById('signup-form')?.addEventListener('submit',async e=>{
+ e.preventDefault();const btn=e.currentTarget.querySelector('[type=submit]');btn.disabled=true;
+ try{await api('signup',Object.fromEntries(new FormData(e.currentTarget)));location.href='mes-annonces.html';}
+ catch(err){showToast(err.message);btn.disabled=false;}
+ });
+}
+function initNavigation(){
+ const nav=document.querySelector('.main-nav');
+ if(session.user){
+  for(const [href,label] of [['publier.html','Publier'],['mes-annonces.html','Mes annonces'],['messages.html','Messages']]){
+   const link=document.createElement('a');link.href=href;link.textContent=label;nav?.append(link);
+  }
+  const link=document.querySelector('.header-login');if(link){link.href='mes-annonces.html';link.textContent='Mon compte';}
+  const actions=document.querySelector('.header-actions');
+  if(actions){const button=document.createElement('button');button.className='button button-outline';button.textContent='Déconnexion';button.addEventListener('click',async()=>{await api('logout',{});location.href='index.html';});actions.append(button);}
+ }else if(nav&&!['login','signup'].includes(page)){const link=document.createElement('a');link.href='publier.html';link.textContent='Publier';nav.append(link);}
+}
+async function initPublish(){
+ if(!session.user){location.href='connexion.html';return;}
+ const form=document.getElementById('publish-form');
+ const id=new URLSearchParams(location.search).get('id');
+ if(id){
+  const listing=ANNONCES.find(a=>a.id===id);
+  if(!listing||Number(listing.sellerId)!==Number(session.user.id)){showToast('Annonce non autorisée.');return;}
+  const fields={titre:listing.title,categorie:listing.cat,prix:listing.priceNumber,ville:listing.city,description:listing.description,specs:listing.specs.join(', ')};
+  for(const [key,val] of Object.entries(fields))if(form.elements[key])form.elements[key].value=val;
+  for(let i=0;i<3;i++)form.elements['photo'+(i+1)].value=listing.photos[i]||'';
+  document.getElementById('publish-title').textContent='Modifier mon annonce';
+ }
+ form.addEventListener('submit',async e=>{
+  e.preventDefault();const btn=form.querySelector('[type=submit]');btn.disabled=true;
+  try{const result=await api(id?'update':'publish',{...Object.fromEntries(new FormData(form)),id});location.href='produit.html?id='+encodeURIComponent(result.id);}
+  catch(err){showToast(err.message);btn.disabled=false;}
+ });
+}
+async function initMyListings(){
+ if(!session.user){location.href='connexion.html';return;}
+ try{
+  const items=(await api('mine')).annonces,container=document.getElementById('my-listings');
+  for(const listing of items){
+   const card=createListingCard(listing),controls=document.createElement('div');controls.className='deal-card-actions';
+   const edit=document.createElement('a');edit.href='publier.html?id='+encodeURIComponent(listing.id);edit.textContent='Modifier';edit.className='button button-outline';
+   const remove=document.createElement('button');remove.textContent='Retirer';remove.className='button button-outline';
+   remove.addEventListener('click',async()=>{if(!confirm('Retirer cette annonce ?'))return;try{await api('delete',{id:listing.id});card.remove();showToast('Annonce retirée.');}catch(e){showToast(e.message);}});
+   controls.append(edit,remove);card.append(controls);container.append(card);
+  }
+  document.getElementById('my-count').textContent=items.length+' annonce(s)';
+ }catch(e){showToast(e.message);}
+}
+async function initMessages(){
+ if(!session.user){location.href='connexion.html';return;}
+ try{
+  const items=(await api('messages')).messages,container=document.getElementById('messages-list');
+  if(!items.length)container.textContent='Aucun message reçu.';
+  for(const item of items){
+   const card=document.createElement('article');card.className='deal-message';
+   const title=document.createElement('strong');title.textContent=item.expediteur+' · '+item.annonce;
+   const message=document.createElement('p');message.textContent=item.contenu;
+   const date=document.createElement('small');date.textContent=item.cree_le;
+   card.append(title,message,date);container.append(card);
+  }
+ }catch(e){showToast(e.message);}
+}
+(async()=>{
+ try{
+  const state=await api('session');
+  session={user:state.user,favorites:state.favorites||[]};
+  initNavigation();
+  ANNONCES=(await api('list')).annonces;
+  if(page==='home')initHome();
+  if(page==='listings')initListings();
+  if(page==='product')initProduct();
+  if(page==='login')initLogin();
+  if(page==='signup')initSignup();
+  if(page==='publish')await initPublish();
+  if(page==='my-listings')await initMyListings();
+  if(page==='messages')await initMessages();
+ }catch(err){showToast(err.message);const container=document.getElementById('listings');if(container)container.textContent='Service indisponible. Rechargez la page.';}
+})();
