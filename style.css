@@ -1709,3 +1709,51 @@ a {
     transition-duration: 0.01ms !important;
   }
 }
+.publish-page {
+  max-width: 560px;
+  padding-bottom: 40px;
+}
+
+.publish-title {
+  margin: 0 0 20px;
+  color: var(--ink);
+  font-size: clamp(1.8rem, 4vw, 2.4rem);
+  letter-spacing: -0.04em;
+}
+
+.publish-form {
+  display: grid;
+  gap: 14px;
+  padding: 24px;
+  border: 1px solid rgb(57 44 107 / 7%);
+  border-radius: 18px;
+  background: var(--paper);
+  box-shadow: var(--shadow);
+}
+
+.publish-form label {
+  display: grid;
+  gap: 6px;
+  color: var(--text);
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.publish-form input,
+.publish-form select,
+.publish-form textarea {
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid #ddd9d1;
+  border-radius: 10px;
+  background: var(--paper);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.85rem;
+}
+
+.publish-message {
+  margin: 0;
+  color: var(--navy);
+  font-size: 0.82rem;
+}

@@ -206,7 +206,7 @@ async function initProduct() {
     detailImage.alt = selectedListing.alt;
     document.getElementById("photo-index").textContent = String(currentPhoto + 1);
     thumbnails.forEach((thumbnail, thumbnailIndex) => {
-      const available=thumbnailIndex<selectedListing.photos.length;
+      const available=selectedListing.photos.length>1 && thumbnailIndex<selectedListing.photos.length;
       thumbnail.hidden=!available;
       if(!available)return;
       thumbnail.classList.toggle("is-selected", thumbnailIndex === currentPhoto);
@@ -216,6 +216,9 @@ async function initProduct() {
     if(total)total.textContent=' / '+selectedListing.photos.length;
   }
 
+  const galleryPrev=document.querySelector('.gallery-prev');
+  const galleryNext=document.querySelector('.gallery-next');
+  galleryPrev.hidden=galleryNext.hidden=selectedListing.photos.length<=1;
   renderPhoto(0);
   document.querySelector(".gallery-prev").addEventListener("click", () => renderPhoto(currentPhoto - 1));
   document.querySelector(".gallery-next").addEventListener("click", () => renderPhoto(currentPhoto + 1));
@@ -317,12 +320,15 @@ function initNavigation(){
  const nav=document.querySelector('.main-nav');
  if(session.user){
   for(const [href,label] of [['publier.html','Publier'],['mes-annonces.html','Mes annonces'],['favoris.html','Favoris'],['messages.html','Messages'],['profil.html','Profil']]){
+   if(nav?.querySelector('a[href="'+href+'"]'))continue;
    const link=document.createElement('a');link.href=href;link.textContent=label;nav?.append(link);
   }
   const link=document.querySelector('.header-login');if(link){link.href='mes-annonces.html';link.textContent='Mon compte';}
+  const current=document.querySelector('.main-nav a[href="'+location.pathname.split('/').pop()+'"]');
+  if(current)current.classList.add('is-active');
   const actions=document.querySelector('.header-actions');
   if(actions){const button=document.createElement('button');button.className='button button-outline';button.textContent='Déconnexion';button.addEventListener('click',async()=>{await api('logout',{});location.href='index.html';});actions.append(button);}
- }else if(nav&&!['login','signup'].includes(page)){const link=document.createElement('a');link.href='publier.html';link.textContent='Publier';nav.append(link);}
+ }else if(nav&&!['login','signup'].includes(page)&&!nav.querySelector('a[href="publier.html"]')){const link=document.createElement('a');link.href='publier.html';link.textContent='Publier';nav.append(link);}
 }
 async function initPublish(){
  if(!session.user){location.href='connexion.html';return;}
@@ -393,8 +399,16 @@ async function initMessages(){
    const card=document.createElement('article');card.className='deal-message';
    const title=document.createElement('strong');const sent=Number(item.expediteur_id)===Number(session.user.id);title.textContent=(sent?'Envoyé à '+item.destinataire:'Reçu de '+item.expediteur)+' · '+item.annonce;
    const message=document.createElement('p');message.textContent=item.contenu;
-   const date=document.createElement('small');date.textContent=item.cree_le;
-   const link=document.createElement('a');link.href='produit.html?id='+encodeURIComponent(item.annonce_id);link.textContent='Voir l’annonce';link.className='text-link';card.append(title,message,date,link);container.append(card);
+   const date=document.createElement('small');date.textContent=new Date(item.cree_le).toLocaleString('fr-FR');
+   const link=document.createElement('a');link.href='produit.html?id='+encodeURIComponent(item.annonce_id);link.textContent='Voir l’annonce';link.className='text-link';
+   const reply=document.createElement('button');reply.type='button';reply.className='button button-outline';reply.textContent='Répondre';
+   reply.addEventListener('click',async()=>{
+    const message=prompt('Votre réponse :');if(!message)return;
+    reply.disabled=true;
+    try{await api('reply',{messageId:item.id,message});location.reload();}
+    catch(e){showToast(e.message);reply.disabled=false;}
+   });
+   card.append(title,message,date,link,reply);container.append(card);
   }
  }catch(e){showToast(e.message);}
 }
@@ -434,6 +448,8 @@ async function initProfile(){
   const state=await api('session');
   session={user:state.user,favorites:state.favorites||[]};
   initNavigation();
+  const headerLocation=document.querySelector('.header-location');
+  if(headerLocation)headerLocation.textContent='⌖ '+(session.user?.ville||'Maroc');
   ANNONCES=(await api('list')).annonces;
   if(page==='home')await initHome();
   if(page==='listings')await initListings();

@@ -1,6 +1,8 @@
 // DEAL App — API MySQL sur Vercel (Node.js)
 'use strict';
 const mysql = require('mysql2/promise');
+const fs = require('node:fs');
+const path = require('node:path');
 const { randomBytes, randomUUID, scryptSync, createHmac, timingSafeEqual } = require('node:crypto');
 
 const catNames = { voitures: 'Voitures', immobilier: 'Immobilier', telephones: 'Téléphones', mode: 'Mode' };
@@ -12,22 +14,61 @@ let initialized;
 
 function database() {
   if (!pool) {
-    if (!process.env.DB_HOST || !process.env.DB_USER || !process.env.DB_PASSWORD) throw new Error('MySQL non configuré.');
+    if (!process.env.DB_HOST || !process.env.DB_USER || !process.env.DB_PASSWORD ||
+        ['DB_HOST','DB_USER','DB_PASSWORD','DB_NAME','DB_PORT'].some(key =>
+          /^\[REDACTED\]$|^\*+$/.test(String(process.env[key]||''))))
+      throw new Error('Paramètres MySQL manquants ou masqués. Vérifiez les variables Vercel DB_*.');
     pool = mysql.createPool({
       host: process.env.DB_HOST, port: Number(process.env.DB_PORT || 3306),
       database: process.env.DB_NAME || 'defaultdb',
       user: process.env.DB_USER, password: process.env.DB_PASSWORD,
-      ssl: { rejectUnauthorized: false }, charset: 'utf8mb4',
+      ssl: { ca: fs.readFileSync(path.join(__dirname, '../certs/ca.pem')), rejectUnauthorized: true }, charset: 'utf8mb4',
       waitForConnections: true, connectionLimit: 3, queueLimit: 15, connectTimeout: 12000,
       enableKeepAlive: true
     });
   }
   return pool;
 }
+
+async function backupLegacyTable(db) {
+  const [tables]=await db.query("SHOW TABLES LIKE 'annonces'");
+  if(!tables.length)return;
+  const [columns]=await db.query("SHOW COLUMNS FROM annonces");
+  const current=new Set(columns.map(c=>c.Field));
+  if(current.has('utilisateur_id')&&current.has('statut')&&current.has('alt_photo'))return;
+  // Never drop old data: preserve the entire original table unchanged.
+  const [existingBackup]=await db.query("SHOW TABLES LIKE 'annonces_legacy_deal'");
+  if(existingBackup.length)throw Error('La base contient deux schémas anciens. Migration manuelle requise.');
+  await db.query("RENAME TABLE annonces TO annonces_legacy_deal");
+}
+async function importLegacyTable(db, ownerId) {
+  const [tables]=await db.query("SHOW TABLES LIKE 'annonces_legacy_deal'");
+  if(!tables.length)return;
+  const [rows]=await db.query("SELECT * FROM annonces_legacy_deal ORDER BY id LIMIT 5000");
+  for(const row of rows) {
+    const oldId=String(row.id ?? '');
+    if(!oldId || oldId.length>60)continue;
+    const id='legacy-'+oldId;
+    const title=String(row.titre||'Annonce importée').slice(0,180);
+    const city=String(row.ville||'Maroc').slice(0,100);
+    const desc=String(row.description||'Annonce importée depuis la version précédente.');
+    const category=String(row.categorie||'divers').toLowerCase().replace(/[^a-z0-9-]/g,'').slice(0,30)||'divers';
+    const price=Number(row.prix);
+    if(!Number.isFinite(price)||price<0||price>9999999999)continue;
+    await db.execute("INSERT IGNORE INTO categories (slug,nom) VALUES (?,?)",[category,catNames[category]||category]);
+    await db.execute("INSERT IGNORE INTO annonces (id,utilisateur_id,categorie,titre,prix,ville,description,alt_photo) VALUES (?,?,?,?,?,?,?,?)",
+      [id,ownerId,category,title,price,city,desc,title]);
+    const photo=String(row.photo||'');
+    if(/^https?:\/\//.test(photo)&&photo.length<1500)
+      await db.execute('INSERT IGNORE INTO photos_annonces (annonce_id,url,position) VALUES (?,?,1)',[id,photo]);
+  }
+}
+
 async function setup() {
   if (!initialized) {
     initialized = (async () => {
       const db = database();
+      await backupLegacyTable(db);
       const statements = [
         "CREATE TABLE IF NOT EXISTS utilisateurs (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, nom VARCHAR(100) NOT NULL, email VARCHAR(190) NOT NULL UNIQUE, mot_de_passe VARCHAR(255) NOT NULL, ville VARCHAR(100) DEFAULT NULL, actif TINYINT(1) NOT NULL DEFAULT 1, cree_le TIMESTAMP DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
         "CREATE TABLE IF NOT EXISTS categories (slug VARCHAR(30) PRIMARY KEY, nom VARCHAR(80) NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
@@ -48,6 +89,7 @@ async function setup() {
         {id:'apartment',cat:'immobilier',title:'Appartement · Guéliz',price:1200000,city:'Marrakech',desc:'Bel appartement lumineux et soigneusement entretenu, dans le quartier recherché de Guéliz. Visite sur rendez-vous à Marrakech.',alt:'Salon lumineux d’un appartement',photos:['photo-1600210492486-724fe5c67fb0','photo-1600607687939-ce8a6c25118c','photo-1600566753086-00f18fb6b3ea'],specs:['92 m²','2 chambres','Meublé']},
         {id:'bag',cat:'mode',title:'Sac en cuir camel',price:450,city:'Rabat',desc:'Sac en cuir couleur camel, élégant et en excellent état. Disponible à Rabat pour une remise en main propre.',alt:'Sac à main en cuir couleur camel',photos:['photo-1584917865442-de89df76afd3','photo-1590874103328-eac38a683ce7','photo-1548036328-c9fa89d128fa'],specs:['Cuir','Très bon état','Camel']}
       ];
+      await importLegacyTable(db, demo.id);
       for (const a of demos) {
         await db.execute("INSERT IGNORE INTO annonces (id,utilisateur_id,categorie,titre,prix,ville,description,alt_photo) VALUES (?,?,?,?,?,?,?,?)",[a.id,demo.id,a.cat,a.title,a.price,a.city,a.desc,a.alt]);
         for (let i=0;i<a.photos.length;i++) await db.execute('INSERT IGNORE INTO photos_annonces (annonce_id,url,position) VALUES (?,?,?)',[a.id,'https://images.unsplash.com/'+a.photos[i]+'?auto=format&fit=crop&w=1000&q=85',i+1]);
@@ -189,7 +231,7 @@ module.exports=async function handler(req,res){
     if(action==='seller'){
       const id=Number(req.query.id);
       if(!Number.isInteger(id)||id<1)httpError('Profil introuvable.',404);
-      const [[seller]]=await db.execute('SELECT id,nom,ville,cree_le FROM utilisateurs WHERE id=? AND actif=1',[id]);
+      const [[seller]]=await db.execute('SELECT id,nom,ville,cree_le,actif FROM utilisateurs WHERE id=?',[id]);
       if(!seller)httpError('Profil introuvable.',404);
       const ads=await listings("a.statut='active' AND a.utilisateur_id=?",[id],100);
       return res.json({ok:true,seller,annonces:ads});
@@ -270,6 +312,17 @@ module.exports=async function handler(req,res){
       if(!listing.actif)httpError('Cette annonce de démonstration ne reçoit pas de messages.');
       if(listing.utilisateur_id===u.id)httpError('Vous êtes le vendeur.');
       await db.execute('INSERT INTO messages (annonce_id,expediteur_id,destinataire_id,contenu) VALUES (?,?,?,?)',[id,u.id,listing.utilisateur_id,message]);
+      return res.json({ok:true});
+    }
+    if(action==='reply'){
+      const d=body(req),u=await user(req),mid=Number(d.messageId);
+      const message=str(d.message,2000);
+      if(!Number.isSafeInteger(mid)||mid<1||message.length<3)httpError('Message invalide.');
+      const [[original]]=await db.execute('SELECT annonce_id,expediteur_id,destinataire_id FROM messages WHERE id=? AND (expediteur_id=? OR destinataire_id=?)',[mid,u.id,u.id]);
+      if(!original)httpError('Conversation inaccessible.',403);
+      const partner=Number(original.expediteur_id)===Number(u.id)?original.destinataire_id:original.expediteur_id;
+      if(Number(partner)===Number(u.id))httpError('Destinataire invalide.');
+      await db.execute('INSERT INTO messages (annonce_id,expediteur_id,destinataire_id,contenu) VALUES (?,?,?,?)',[original.annonce_id,u.id,partner,message]);
       return res.json({ok:true});
     }
     if(action==='messages'){

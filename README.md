@@ -79,3 +79,32 @@ Une réponse comme `{"ok":true,"database":"connected","annonces":4}` indique que
 - Il n'y a pas de système d'e-mail de récupération de mot de passe ; l'interface ne doit pas promettre cette fonction.
 - Le nombre d'annonces renvoyées par une recherche est actuellement limité à 100.
 - Le système n'est pas un service commercial audité ; tester le parcours complet sur le déploiement et sécuriser davantage avant tout usage public à grande échelle.
+
+## Conservation du design de amal-branch
+Le site reprend la feuille de style originale de `amal-branch`, y compris le formulaire de publication. Le JavaScript de cette ancienne branche utilisait des annonces de secours et des favoris locaux : ces données ne sont pas une preuve de connexion MySQL. La version de production utilise uniquement les endpoints `/api/index` pour les données des utilisateurs.
+
+## Migration de l'ancienne base de données
+L'ancien projet PHP pouvait posséder une table `annonces` avec seulement `id, titre, prix, ville, categorie, description, photo`.
+
+Au premier démarrage, si la table `annonces` existe mais n'a pas les colonnes du nouveau schéma, l'API :
+1. **renomme** l'ancienne table en `annonces_legacy_deal` (aucune suppression de données) ;
+2. crée les nouvelles tables avec `CREATE TABLE IF NOT EXISTS` ;
+3. copie jusqu'à 5000 anciennes annonces vers le nouveau schéma, avec l'identifiant `legacy-...` ;
+4. garde l'ancienne table comme sauvegarde jusqu'à validation manuelle de l'import.
+
+Les anciennes annonces anonymes sont associées à un compte de démonstration inactif : leur auteur d'origine ne peut pas être identifié sans authentification antérieure. Les nouvelles annonces sont liées à un vrai compte et permettent le contact avec le vendeur.
+
+**Important :** si l'ancienne base contient déjà une table `annonces_legacy_deal`, ne pas renommer ou supprimer des données au hasard ; vérifier d'abord la migration.
+
+## Tests après déploiement
+1. `/api/index?action=health` doit donner un JSON avec `ok:true`.
+2. `/api/index?action=list` doit renvoyer le tableau `annonces`.
+3. Créer un utilisateur via `inscription.html`.
+4. Publier une nouvelle annonce et vérifier sa présence après actualisation.
+5. Modifier l'annonce, puis retirer l'annonce.
+6. Tester `favoris.html` après reconnexion.
+7. Utiliser deux comptes distincts : envoyer un message depuis la fiche annonce, consulter `messages.html`, cliquer « Répondre ».
+
+**En cas de réponse HTTP 500 + ER_ACCESS_DENIED_ERROR :** les variables `DB_USER` / `DB_PASSWORD` (ou autre paramètre DB_*) de Vercel ne correspondent pas aux identifiants Aiven. Saisir de nouvelles valeurs dans Vercel > Project Settings > Environment Variables en se basant directement sur Aiven > MySQL > Overview. Ne pas saisir `[REDACTED]` ni partager le mot de passe dans GitHub ou ce chat. Puis redéployer.
+
+Le certificat d'autorité MySQL est dans `certs/ca.pem` et la connexion TLS vérifie le certificat.
