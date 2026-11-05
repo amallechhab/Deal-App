@@ -20,7 +20,7 @@ Application de petites annonces, réalisée pour un projet de formation.
 | Fiche annonce et profil vendeur | `annonces`, `utilisateurs`, `caracteristiques` |
 | Inscription / connexion / déconnexion | `utilisateurs` ; mots de passe hachés avec scrypt |
 | Publication, modification et suppression | `annonces` et tables liées |
-| Upload de 3 images max, chacune 2 Mo | `images_upload` + `photos_annonces` |
+| Upload d’une photo depuis le formulaire (2 Mo max) | `images_upload` + `photos_annonces` |
 | Favoris personnels | `favoris` |
 | Messages envoyés et reçus | `messages` |
 | Profil personnel modifiable | `utilisateurs` |
@@ -34,7 +34,7 @@ Toutes les opérations d'écriture sont traitées sur le serveur et contrôlent 
 - `produit.html?id=golf` : détails
 - `connexion.html` : connexion
 - `inscription.html` : inscription
-- `publier.html` : publication ou modification
+- `publier.html` : formulaire simplifié (Titre, Prix, Ville, Catégorie, Description, Photo), publication ou modification. Les visiteurs non connectés restent sur la page et voient un message de connexion ; aucune redirection automatique.
 - `mes-annonces.html` : gestion de ses annonces
 - `favoris.html` : favoris sauvegardés dans MySQL
 - `messages.html` : messages reçus et envoyés

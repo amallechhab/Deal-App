@@ -330,54 +330,135 @@ function initNavigation(){
   if(actions){const button=document.createElement('button');button.className='button button-outline';button.textContent='Déconnexion';button.addEventListener('click',async()=>{await api('logout',{});location.href='index.html';});actions.append(button);}
  }else if(nav&&!['login','signup'].includes(page)&&!nav.querySelector('a[href="publier.html"]')){const link=document.createElement('a');link.href='publier.html';link.textContent='Publier';nav.append(link);}
 }
+
+function showAuthNotice() {
+  const panel = document.querySelector('.deal-panel') || document.querySelector('.page-shell');
+  if (!panel || panel.querySelector('.deal-auth-notice')) return;
+  const note = document.createElement('p');
+  note.className = 'deal-auth-notice';
+  note.append(document.createTextNode('Pour accéder à cette fonctionnalité, '));
+  const login = document.createElement('a');
+  login.href = 'connexion.html';
+  login.textContent = 'connectez-vous';
+  note.append(login, document.createTextNode(' ou '));
+  const signup = document.createElement('a');
+  signup.href = 'inscription.html';
+  signup.textContent = 'créez un compte';
+  note.append(signup, document.createTextNode('.'));
+  panel.append(note);
+}
 async function initPublish(){
- if(!session.user){location.href='connexion.html';return;}
- const form=document.getElementById('publish-form');
- try{
-  const categories=(await api('categories')).categories;
-  const select=form.elements.categorie;
-  select.replaceChildren(...categories.map(cat=>{
-   const option=document.createElement('option');option.value=cat.slug;option.textContent=cat.nom;return option;
-  }));
- }catch(e){showToast(e.message);}
- const id=new URLSearchParams(location.search).get('id');
- if(id){
-  let listing;
-  try{listing=(await api('detail',null,{id})).annonce;}catch(e){showToast(e.message);return;}
-  if(!listing||Number(listing.sellerId)!==Number(session.user.id)){showToast('Annonce non autorisée.');return;}
-  const fields={titre:listing.title,categorie:listing.cat,prix:listing.priceNumber,ville:listing.city,description:listing.description,specs:listing.specs.join(', ')};
-  for(const [key,val] of Object.entries(fields))if(form.elements[key])form.elements[key].value=val;
-  for(let i=0;i<3;i++)form.elements['photo'+(i+1)].value=listing.photos[i]||'';
-  document.getElementById('publish-title').textContent='Modifier mon annonce';
- }
- form.addEventListener('submit',async e=>{
-  e.preventDefault();const btn=form.querySelector('[type=submit]');btn.disabled=true;
-  const originalText=btn.textContent;
+  const form = document.getElementById('publish-form');
+  if(!form)return;
+  const notice = document.getElementById('message');
+  const photo = form.elements.photo;
+  const id = new URLSearchParams(location.search).get('id');
+
+  function showMessage(message, isError=true){
+    notice.replaceChildren();
+    notice.textContent=message;
+    notice.classList.toggle('is-error',isError);
+  }
+  if(!session.user){
+    notice.replaceChildren();
+    notice.append(document.createTextNode('Pour publier, '));
+    const link=document.createElement('a');
+    link.href='connexion.html';link.textContent='connectez-vous';
+    notice.append(link,document.createTextNode(' ou '));
+    const signup=document.createElement('a');
+    signup.href='inscription.html';signup.textContent='créez un compte';
+    notice.append(signup,document.createTextNode('.'));
+  }
+
   try{
-   const values=Object.fromEntries(new FormData(form));
-   for(let i=1;i<=3;i++){
-    const field=form.elements['upload'+i];
-    const file=field?.files?.[0];delete values['upload'+i];
-    if(!file)continue;
-    if(file.size>2097152)throw new Error('Chaque photo doit faire moins de 2 Mo.');
-    if(!['image/jpeg','image/png','image/webp'].includes(file.type))throw new Error('Formats acceptés : JPG, PNG, WebP.');
-    btn.textContent='Envoi photo '+i+'...';
-    const dataUrl=await new Promise((resolve,reject)=>{
-      const reader=new FileReader();reader.onload=()=>resolve(reader.result);
-      reader.onerror=()=>reject(new Error('Lecture de la photo impossible.'));
-      reader.readAsDataURL(file);
-    });
-    const uploaded=await api('upload',{dataUrl});
-    values['photo'+i]=uploaded.url;
-   }
-   btn.textContent='Enregistrement...';
-   const result=await api(id?'update':'publish',{...values,id});
-   location.href='produit.html?id='+encodeURIComponent(result.id);
-  }catch(err){showToast(err.message);btn.disabled=false;btn.textContent=originalText;}
- });
+    const categories=(await api('categories')).categories;
+    const select=form.elements.categorie;
+    if(categories.length){
+      select.replaceChildren(...categories.map(cat=>{
+        const option=document.createElement('option');option.value=cat.slug;option.textContent=cat.nom;return option;
+      }));
+    }
+  }catch(error){showToast(error.message);}
+
+  if(id){
+    if(!session.user){
+      showMessage('Connectez-vous pour modifier cette annonce.');
+      return;
+    }
+    let listing;
+    try{listing=(await api('detail',null,{id})).annonce;}
+    catch(error){showMessage(error.message);return;}
+    if(Number(listing.sellerId)!==Number(session.user.id)){
+      showMessage('Vous ne pouvez modifier que vos propres annonces.');
+      return;
+    }
+    for(const [name,value] of Object.entries({
+      titre:listing.title,prix:listing.priceNumber,ville:listing.city,
+      categorie:listing.cat,description:listing.description,
+      photo1:listing.photos[0]||'',specs:listing.specs.join(', ')
+    })){
+      if(form.elements[name])form.elements[name].value=value;
+    }
+    photo.required=false;
+    document.getElementById('publish-title').textContent='Modifier mon annonce';
+    form.querySelector('[type="submit"]').textContent='Enregistrer les modifications';
+  }
+
+  form.addEventListener('submit',async event=>{
+    event.preventDefault();
+    if(!session.user){
+      showMessage('Connectez-vous pour publier votre annonce. La page ne change pas automatiquement.');
+      return;
+    }
+    const button=form.querySelector('[type="submit"]');
+    const initialLabel=button.textContent;
+    button.disabled=true;
+    showMessage('Enregistrement en cours...',false);
+    try{
+      const values={
+        titre:form.elements.titre.value,
+        prix:form.elements.prix.value,
+        ville:form.elements.ville.value,
+        categorie:form.elements.categorie.value,
+        description:form.elements.description.value,
+        photo1:form.elements.photo1.value,
+        specs:form.elements.specs.value,
+        photo2:'',photo3:''
+      };
+      const file=photo.files?.[0];
+      if(file){
+        if(file.size>2*1024*1024)throw new Error('La photo ne doit pas dépasser 2 Mo.');
+        if(!['image/jpeg','image/png','image/webp'].includes(file.type))
+          throw new Error('Formats acceptés : JPG, PNG ou WebP.');
+        button.textContent='Envoi de la photo...';
+        const dataUrl=await new Promise((resolve,reject)=>{
+          const reader=new FileReader();
+          reader.onload=()=>resolve(reader.result);
+          reader.onerror=()=>reject(new Error('Impossible de lire la photo.'));
+          reader.readAsDataURL(file);
+        });
+        const upload=await api('upload',{dataUrl});
+        values.photo1=upload.url;
+      }
+      if(!values.photo1)throw new Error('Veuillez choisir une photo.');
+      button.textContent='Enregistrement...';
+      const saved=await api(id?'update':'publish',{...values,id});
+      if(!id)form.reset();
+      notice.replaceChildren();
+      notice.classList.remove('is-error');
+      notice.append(document.createTextNode(id?'Annonce modifiée avec succès. ':'Annonce publiée avec succès. '));
+      const link=document.createElement('a');
+      link.href='produit.html?id='+encodeURIComponent(saved.id);
+      link.textContent="Voir l'annonce";
+      notice.append(link);
+    }catch(error){
+      showMessage(error.message);
+      showToast(error.message);
+    }finally{button.disabled=false;button.textContent=initialLabel;}
+  });
 }
 async function initMyListings(){
- if(!session.user){location.href='connexion.html';return;}
+ if(!session.user){showAuthNotice();return;}
  try{
   const items=(await api('mine')).annonces,container=document.getElementById('my-listings');
   for(const listing of items){
@@ -391,7 +472,7 @@ async function initMyListings(){
  }catch(e){showToast(e.message);}
 }
 async function initMessages(){
- if(!session.user){location.href='connexion.html';return;}
+ if(!session.user){showAuthNotice();return;}
  try{
   const items=(await api('messages')).messages,container=document.getElementById('messages-list');
   if(!items.length)container.textContent='Aucun message envoyé ou reçu.';
@@ -413,7 +494,7 @@ async function initMessages(){
  }catch(e){showToast(e.message);}
 }
 async function initFavorites(){
- if(!session.user){location.href='connexion.html';return;}
+ if(!session.user){showAuthNotice();return;}
  try{const ads=(await api('favorites')).annonces;
   renderListingGrid(document.getElementById('favorite-listings'),ads);
   document.getElementById('favorite-count').textContent=ads.length+' annonce(s) favorite(s)';
@@ -431,7 +512,7 @@ async function initSeller(){
  }catch(e){showToast(e.message);}
 }
 async function initProfile(){
- if(!session.user){location.href='connexion.html';return;}
+ if(!session.user){showAuthNotice();return;}
  const form=document.getElementById('profile-form');
  form.elements.nom.value=session.user.nom;
  form.elements.ville.value=session.user.ville||'';
