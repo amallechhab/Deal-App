@@ -4,7 +4,7 @@ const mysql = require('mysql2/promise');
 const { randomBytes, randomUUID, scryptSync, createHmac, timingSafeEqual } = require('node:crypto');
 
 const catNames = { voitures: 'Voitures', immobilier: 'Immobilier', telephones: 'Téléphones', mode: 'Mode' };
-const fallbackPhoto = 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1000&q=85';
+const fallbackPhoto = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent("<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"900\" height=\"600\" viewBox=\"0 0 900 600\"><rect width=\"900\" height=\"600\" fill=\"#f5f1e8\"/><rect x=\"240\" y=\"200\" width=\"420\" height=\"200\" rx=\"28\" fill=\"#dfe9e3\"/><text x=\"450\" y=\"325\" font-family=\"Arial,sans-serif\" font-weight=\"bold\" font-size=\"58\" text-anchor=\"middle\" fill=\"#295b49\">DEAL</text></svg>");
 const cookieName = 'deal_session';
 const sessionSeconds = 60 * 60 * 24 * 7;
 let pool;
@@ -34,6 +34,7 @@ async function setup() {
         "CREATE TABLE IF NOT EXISTS annonces (id VARCHAR(80) PRIMARY KEY, utilisateur_id INT UNSIGNED NOT NULL, categorie VARCHAR(30) NOT NULL, titre VARCHAR(180) NOT NULL, prix DECIMAL(12,2) NOT NULL, ville VARCHAR(100) NOT NULL, description TEXT NOT NULL, alt_photo VARCHAR(255) DEFAULT '', statut ENUM('active','retiree') NOT NULL DEFAULT 'active', cree_le TIMESTAMP DEFAULT CURRENT_TIMESTAMP, INDEX idx_statut (statut), INDEX idx_categorie (categorie), FOREIGN KEY (utilisateur_id) REFERENCES utilisateurs(id), FOREIGN KEY (categorie) REFERENCES categories(slug)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
         "CREATE TABLE IF NOT EXISTS photos_annonces (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, annonce_id VARCHAR(80) NOT NULL, url VARCHAR(1500) NOT NULL, position TINYINT UNSIGNED NOT NULL, UNIQUE KEY unique_photo_position (annonce_id,position), FOREIGN KEY (annonce_id) REFERENCES annonces(id) ON DELETE CASCADE) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
         "CREATE TABLE IF NOT EXISTS caracteristiques (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, annonce_id VARCHAR(80) NOT NULL, valeur VARCHAR(100) NOT NULL, position TINYINT UNSIGNED NOT NULL, UNIQUE KEY unique_spec_position (annonce_id,position), FOREIGN KEY (annonce_id) REFERENCES annonces(id) ON DELETE CASCADE) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+        "CREATE TABLE IF NOT EXISTS images_upload (id VARCHAR(36) PRIMARY KEY, utilisateur_id INT UNSIGNED NOT NULL, format VARCHAR(20) NOT NULL, image_data MEDIUMBLOB NOT NULL, cree_le TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (utilisateur_id) REFERENCES utilisateurs(id) ON DELETE CASCADE) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
         "CREATE TABLE IF NOT EXISTS favoris (utilisateur_id INT UNSIGNED NOT NULL, annonce_id VARCHAR(80) NOT NULL, cree_le TIMESTAMP DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (utilisateur_id,annonce_id), FOREIGN KEY (utilisateur_id) REFERENCES utilisateurs(id) ON DELETE CASCADE, FOREIGN KEY (annonce_id) REFERENCES annonces(id) ON DELETE CASCADE) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
         "CREATE TABLE IF NOT EXISTS messages (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, annonce_id VARCHAR(80) NOT NULL, expediteur_id INT UNSIGNED NOT NULL, destinataire_id INT UNSIGNED NOT NULL, contenu TEXT NOT NULL, cree_le TIMESTAMP DEFAULT CURRENT_TIMESTAMP, INDEX idx_destinataire (destinataire_id,cree_le), FOREIGN KEY (annonce_id) REFERENCES annonces(id) ON DELETE CASCADE, FOREIGN KEY (expediteur_id) REFERENCES utilisateurs(id), FOREIGN KEY (destinataire_id) REFERENCES utilisateurs(id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
       ];
@@ -58,7 +59,7 @@ async function setup() {
 }
 function httpError(message, status=400) { const e = new Error(message); e.status=status; throw e; }
 function str(value,max=200) { if(typeof value!=='string') httpError('Données invalides.'); const s=value.trim(); if(s.length>max) httpError('Texte trop long.'); return s; }
-function body(req) {
+function body(req, maxSize = 30000) {
   if (req.method!=='POST') httpError('Méthode non autorisée.',405);
   if (!(req.headers['content-type']||'').includes('application/json')) httpError('JSON requis.',415);
   const origin=req.headers.origin;
@@ -67,7 +68,7 @@ function body(req) {
     if(host !== req.headers.host) httpError('Origine interdite.',403);
   }
   const data=req.body;
-  if(!data || typeof data!=='object' || Array.isArray(data) || JSON.stringify(data).length>30000) httpError('Données invalides.',400);
+  if(!data || typeof data!=='object' || Array.isArray(data) || JSON.stringify(data).length>maxSize) httpError('Données invalides.',400);
   return data;
 }
 const secret = () => process.env.SESSION_SECRET || process.env.DB_PASSWORD;
@@ -98,7 +99,7 @@ async function optionalUser(req){
 async function user(req){const u=await optionalUser(req);if(!u)httpError('Connectez-vous pour continuer.',401);return u;}
 async function listings(where="a.statut='active'",params=[],limit=100){
   const db=database();
-  const [items]=await db.execute("SELECT a.id,a.utilisateur_id,a.categorie,a.titre,a.prix,a.ville,a.description,a.alt_photo,a.cree_le,c.nom AS categoryLabel,u.nom AS sellerName,u.actif AS sellerActive FROM annonces a JOIN categories c ON c.slug=a.categorie JOIN utilisateurs u ON u.id=a.utilisateur_id WHERE "+where+" ORDER BY a.cree_le DESC,a.id ASC LIMIT "+Math.min(Math.max(1,limit),100),params);
+  const [items]=await db.execute("SELECT a.id,a.utilisateur_id,a.categorie,a.titre,a.prix,a.ville,a.description,a.alt_photo,a.cree_le,c.nom AS categoryLabel,u.nom AS sellerName,u.actif AS sellerActive,u.cree_le AS sellerCreatedAt FROM annonces a JOIN categories c ON c.slug=a.categorie JOIN utilisateurs u ON u.id=a.utilisateur_id WHERE "+where+" ORDER BY a.cree_le DESC,a.id ASC LIMIT "+Math.min(Math.max(1,limit),100),params);
   if(!items.length)return [];
   const qs=items.map(()=>'?').join(',');
   const [photos]=await db.query('SELECT annonce_id,url FROM photos_annonces WHERE annonce_id IN ('+qs+') ORDER BY position',items.map(x=>x.id));
@@ -106,15 +107,18 @@ async function listings(where="a.statut='active'",params=[],limit=100){
   const groupedPhotos={};const groupedSpecs={};
   for(const p of photos)(groupedPhotos[p.annonce_id]??=[]).push(p.url);
   for(const s of specs)(groupedSpecs[s.annonce_id]??=[]).push(s.valeur);
-  return items.map(r=>({id:r.id,cat:r.categorie,categoryLabel:r.categoryLabel,title:r.titre,price:new Intl.NumberFormat('fr-FR',{maximumFractionDigits:0}).format(r.prix)+' MAD',priceNumber:Number(r.prix),city:r.ville,description:r.description,alt:r.alt_photo||r.titre,photos:groupedPhotos[r.id]||[fallbackPhoto],specs:groupedSpecs[r.id]||[],sellerId:r.utilisateur_id,sellerName:r.sellerName,sellerActive:!!r.sellerActive,createdAt:r.cree_le instanceof Date?r.cree_le.toISOString():String(r.cree_le)}));
+  return items.map(r=>({id:r.id,cat:r.categorie,categoryLabel:r.categoryLabel,title:r.titre,price:new Intl.NumberFormat('fr-FR',{maximumFractionDigits:0}).format(r.prix)+' MAD',priceNumber:Number(r.prix),city:r.ville,description:r.description,alt:r.alt_photo||r.titre,photos:groupedPhotos[r.id]||[fallbackPhoto],specs:groupedSpecs[r.id]||[],sellerId:r.utilisateur_id,sellerName:r.sellerName,sellerActive:!!r.sellerActive,sellerCreatedAt:r.sellerCreatedAt instanceof Date?r.sellerCreatedAt.toISOString():String(r.sellerCreatedAt),createdAt:r.cree_le instanceof Date?r.cree_le.toISOString():String(r.cree_le)}));
 }
 function validateListing(d) {
   const title=str(d.titre,180),cat=str(d.categorie,30),city=str(d.ville,100),description=str(d.description,5000);
   const price=Number(d.prix);
   if(title.length<3||city.length<2||description.length<10) httpError('Complétez le titre, la ville et la description.');
-  if(!catNames[cat]) httpError('Catégorie inconnue.');
+  if(!/^[a-z0-9-]{2,30}$/.test(cat)) httpError('Catégorie invalide.');
   if(!Number.isFinite(price)||price<1||price>9999999999) httpError('Prix invalide.');
-  const photos=[d.photo1,d.photo2,d.photo3].filter(Boolean).map(url=>{const s=str(url,1500);try{const u=new URL(s);if(!['http:','https:'].includes(u.protocol))httpError('Lien de photo invalide.');}catch{httpError('Lien de photo invalide.');}return s;});
+  const photos=[d.photo1,d.photo2,d.photo3].filter(Boolean).map(url=>{const s=str(url,1500);if(!/^\/api\/index\?action=photo&id=[a-z0-9-]{36}$/.test(s)){
+        try{const u=new URL(s);if(!['http:','https:'].includes(u.protocol))httpError('Lien de photo invalide.');}
+        catch{httpError('Lien de photo invalide.');}
+      }return s;});
   const specs=str(d.specs||'',1000).split(',').map(s=>s.trim()).filter(Boolean).slice(0,3);
   if(specs.some(s=>s.length>100))httpError('Caractéristique trop longue.');
   return {title,cat,city,description,price,photos,specs};
@@ -139,11 +143,40 @@ module.exports=async function handler(req,res){
     if(!action) httpError('Action manquante.',404);
     if(req.method!=='GET'&&req.method!=='POST')httpError('Méthode non autorisée.',405);
     await setup();const db=database();
+    if(action==='photo'){
+      if(req.method!=='GET')httpError('Méthode non autorisée.',405);
+      const id=String(req.query.id||'');
+      if(!/^[0-9a-f-]{36}$/i.test(id))httpError('Image introuvable.',404);
+      const [[img]]=await db.execute('SELECT format,image_data FROM images_upload WHERE id=?',[id]);
+      if(!img)httpError('Image introuvable.',404);
+      res.setHeader('Content-Type',img.format);
+      res.setHeader('Cache-Control','public,max-age=86400');
+      return res.end(img.image_data);
+    }
+    if(action==='upload'){
+      const u=await user(req),d=body(req,3000000);
+      if(typeof d.dataUrl!=='string'||d.dataUrl.length>2800000)httpError('Image trop grande (2 Mo maximum).',413);
+      const match=/^data:image\/(jpeg|png|webp);base64,([A-Za-z0-9+/=]+)$/.exec(d.dataUrl);
+      if(!match)httpError('Format accepté : JPG, PNG ou WebP.');
+      const format='image/'+match[1],bytes=Buffer.from(match[2],'base64');
+      if(bytes.length===0||bytes.length>2*1024*1024)httpError('Image trop grande (2 Mo maximum).',413);
+      const valid=(format==='image/jpeg'&&bytes[0]===255&&bytes[1]===216&&bytes[2]===255)
+       ||(format==='image/png'&&bytes.subarray(0,8).equals(Buffer.from('89504e470d0a1a0a','hex')))
+       ||(format==='image/webp'&&bytes.toString('ascii',0,4)==='RIFF'&&bytes.toString('ascii',8,12)==='WEBP');
+      if(!valid)httpError('Le fichier ne correspond pas au format image indiqué.');
+      const id=randomUUID();
+      await db.execute('INSERT INTO images_upload (id,utilisateur_id,format,image_data) VALUES (?,?,?,?)',[id,u.id,format,bytes]);
+      return res.json({ok:true,url:'/api/index?action=photo&id='+id});
+    }
     if(action==='health'){const [[n]]=await db.execute('SELECT COUNT(*) AS n FROM annonces');return res.json({ok:true,database:'connected',annonces:Number(n.n)});}
+    if(action==='categories'){
+      const [rows]=await db.query('SELECT slug,nom FROM categories ORDER BY nom');
+      return res.json({ok:true,categories:rows});
+    }
     if(action==='list'){
       const cat=str(req.query.category||'all',30),q=str(req.query.q||'',120);
       let where="a.statut='active'",params=[];
-      if(cat!=='all'){if(!catNames[cat])httpError('Catégorie inconnue.');where+=' AND a.categorie=?';params.push(cat);}
+      if(cat!=='all'){if(!/^[a-z0-9-]{2,30}$/.test(cat))httpError('Catégorie invalide.');where+=' AND a.categorie=?';params.push(cat);}
       if(q){where+=' AND (a.titre LIKE ? OR a.ville LIKE ? OR c.nom LIKE ?)';params.push('%'+q+'%','%'+q+'%','%'+q+'%');}
       return res.json({ok:true,annonces:await listings(where,params)});
     }
@@ -152,6 +185,14 @@ module.exports=async function handler(req,res){
       const result=await listings("a.statut='active' AND a.id=?",[id],1);
       if(!result.length)httpError('Annonce introuvable.',404);
       return res.json({ok:true,annonce:result[0]});
+    }
+    if(action==='seller'){
+      const id=Number(req.query.id);
+      if(!Number.isInteger(id)||id<1)httpError('Profil introuvable.',404);
+      const [[seller]]=await db.execute('SELECT id,nom,ville,cree_le FROM utilisateurs WHERE id=? AND actif=1',[id]);
+      if(!seller)httpError('Profil introuvable.',404);
+      const ads=await listings("a.statut='active' AND a.utilisateur_id=?",[id],100);
+      return res.json({ok:true,seller,annonces:ads});
     }
     if(action==='session'){
       const u=await optionalUser(req);let favorites=[];
@@ -172,11 +213,26 @@ module.exports=async function handler(req,res){
       setCookie(res,account.id);return res.json({ok:true});
     }
     if(action==='logout'){body(req);clearCookie(res);return res.json({ok:true});}
+    if(action==='favorites'){
+      const u=await user(req);
+      const ads=await listings("a.statut='active' AND EXISTS (SELECT 1 FROM favoris f WHERE f.annonce_id=a.id AND f.utilisateur_id=?)",[u.id],100);
+      return res.json({ok:true,annonces:ads});
+    }
+    if(action==='profile'){
+      const u=await user(req);
+      if(req.method==='GET')return res.json({ok:true,user:u});
+      const d=body(req),nom=str(d.nom,100),ville=str(d.ville||'',100);
+      if(nom.length<2)httpError('Nom trop court.');
+      await db.execute('UPDATE utilisateurs SET nom=?,ville=? WHERE id=?',[nom,ville||null,u.id]);
+      return res.json({ok:true,user:{...u,nom,ville}});
+    }
     if(action==='mine'){
       const u=await user(req);return res.json({ok:true,annonces:await listings("a.statut='active' AND a.utilisateur_id=?",[u.id])});
     }
     if(action==='publish'||action==='update'){
       const d=body(req),u=await user(req),item=validateListing(d);
+      const [[existingCategory]]=await db.execute('SELECT slug FROM categories WHERE slug=?',[item.cat]);
+      if(!existingCategory)httpError('Catégorie inconnue.');
       let id;
       if(action==='update'){
         id=str(d.id,80);
@@ -218,7 +274,14 @@ module.exports=async function handler(req,res){
     }
     if(action==='messages'){
       const u=await user(req);
-      const [rows]=await db.execute('SELECT m.id,m.contenu,m.cree_le,u.nom AS expediteur,a.titre AS annonce FROM messages m JOIN utilisateurs u ON u.id=m.expediteur_id JOIN annonces a ON a.id=m.annonce_id WHERE m.destinataire_id=? ORDER BY m.cree_le DESC LIMIT 100',[u.id]);
+      const [rows]=await db.execute(`SELECT m.id,m.contenu,m.cree_le,m.annonce_id,m.expediteur_id,m.destinataire_id, 
+       em.nom AS expediteur, dm.nom AS destinataire, a.titre AS annonce
+       FROM messages m
+       JOIN utilisateurs em ON em.id=m.expediteur_id
+       JOIN utilisateurs dm ON dm.id=m.destinataire_id
+       JOIN annonces a ON a.id=m.annonce_id
+       WHERE m.destinataire_id=? OR m.expediteur_id=?
+       ORDER BY m.cree_le DESC LIMIT 100`,[u.id,u.id]);
       return res.json({ok:true,messages:rows});
     }
     httpError('Route introuvable.',404);

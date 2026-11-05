@@ -1,1 +1,21 @@
 .deal-extra{min-height:70vh;padding-top:56px;padding-bottom:72px}.deal-panel{max-width:980px;margin:auto}.deal-panel>h1,.deal-toolbar h1{font-size:clamp(2rem,4vw,3rem);margin-bottom:12px}.deal-panel>p{margin-bottom:26px}.deal-form{max-width:620px;display:grid;gap:14px;margin:25px 0}.deal-form label{font-size:14px;font-weight:700;margin-top:8px}.deal-form input,.deal-form select,.deal-form textarea{padding:14px 16px;border:1px solid #d8d5cf;border-radius:12px;background:#fff;color:#202020;font:inherit;width:100%;box-sizing:border-box}.deal-form input:focus,.deal-form textarea:focus,.deal-form select:focus{outline:2px solid #659685}.deal-form .button{margin-top:12px;justify-self:start}.deal-toolbar{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:25px}.deal-card-actions{display:flex;gap:8px;justify-content:center;padding:10px;flex-wrap:wrap}.deal-card-actions .button{font-size:12px;padding:8px}.deal-message{background:#fff;border:1px solid #e5e0d8;border-radius:14px;padding:18px;margin:12px 0;box-shadow:0 4px 18px rgba(0,0,0,.04)}.deal-message p{margin:9px 0}.deal-message small{color:#777}@media(max-width:620px){.deal-extra{padding-top:35px}.deal-toolbar{align-items:flex-start}.deal-form .button{width:100%}}
+/* Compléments pour les pages dynamiques ; la charte graphique d'origine est conservée */
+[hidden]{display:none!important}
+.deal-readonly{padding:13px 16px;border:1px solid #dfdbd4;border-radius:12px;background:#f7f4ef}
+.deal-form input[type=file]{background:#f9f7f2;cursor:pointer;font-size:14px}
+.deal-form input[type=file]::file-selector-button{background:#dceee8;color:#163c31;border:0;border-radius:8px;padding:9px 13px;margin-right:12px;cursor:pointer}
+.seller-avatar{height:54px;width:54px;min-width:54px;border-radius:50%;display:grid;place-items:center;background:#dceee8;color:#14513e;font-size:24px;font-weight:800}
+.deal-message-list{display:grid;gap:12px;margin-top:20px}
+.deal-message .text-link{display:inline-block;margin-top:10px}
+@media(max-width:900px){
+.main-nav{flex-wrap:wrap;row-gap:7px;justify-content:center}
+.main-nav a{font-size:13px}
+.header-actions .button{font-size:12px;padding:9px}
+}
+@media(max-width:620px){
+.site-header{flex-wrap:wrap}
+.main-nav{width:100%;justify-content:center;gap:6px 14px;order:3}
+.main-nav a{font-size:12px}
+.header-actions{margin-left:auto}
+.deal-form input[type=file]{max-width:100%}
+}

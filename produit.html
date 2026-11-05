@@ -7,7 +7,8 @@
   <meta name="description" content="Consultez les photos, le prix et les détails de cette annonce DEAL.">
   <title>DEAL — Détail de l’annonce</title>
   <link rel="stylesheet" href="style.css">
-  <script src="script.js?v=4" defer></script>
+  <link rel="stylesheet" href="deal-pages.css">
+  <script src="script.js?v=5" defer></script>
 </head>
 <body data-page="product">
   <header class="site-header">
@@ -26,7 +27,7 @@
     </div>
     <div class="product-layout">
       <section class="product-gallery" aria-label="Photos de l’annonce">
-        <div class="product-main-image"><img id="detail-image" src="" alt=""><span class="photo-count"><span aria-hidden="true">▧</span> <span id="photo-index">1</span> / 3</span><button class="gallery-arrow gallery-prev" type="button" aria-label="Photo précédente">‹</button><button class="gallery-arrow gallery-next" type="button" aria-label="Photo suivante">›</button></div>
+        <div class="product-main-image"><img id="detail-image" src="" alt=""><span class="photo-count"><span aria-hidden="true">▧</span> <span id="photo-index">1</span><span id="photo-total"> / 3</span></span><button class="gallery-arrow gallery-prev" type="button" aria-label="Photo précédente">‹</button><button class="gallery-arrow gallery-next" type="button" aria-label="Photo suivante">›</button></div>
         <div class="thumbnail-row">
           <button class="thumbnail is-selected" type="button" aria-label="Photo 1"><img src="" alt=""></button>
           <button class="thumbnail" type="button" aria-label="Photo 2"><img src="" alt=""></button>
@@ -38,14 +39,14 @@
         <span class="product-tag">Annonce vérifiée</span>
         <p class="detail-price" id="detail-price"></p>
         <h1 id="detail-name"></h1>
-        <p class="detail-location"><span aria-hidden="true">⌖</span> <span id="detail-city"></span> · Annonce DEAL</p>
+        <p class="detail-location"><span aria-hidden="true">⌖</span> <span id="detail-city"></span> <span id="published-date"></span></p>
         <div class="specifications" id="detail-specifications"></div>
         <hr>
         <h2>À propos de cette annonce</h2>
         <p class="detail-description" id="detail-description"></p>
         <button class="seller-card" type="button">
-          <img src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&amp;fit=crop&amp;w=100&amp;h=100&amp;q=80" alt="">
-          <span class="seller-info"><strong>Amine B.</strong><span class="verified">✓ Vendeur vérifié</span><small>Membre depuis 2022</small></span>
+          <img src="" alt="">
+          <span class="seller-info"><strong>Amine B.</strong><small></small></span>
           <span class="seller-chevron" aria-hidden="true">›</span>
         </button>
         <div class="detail-actions">
