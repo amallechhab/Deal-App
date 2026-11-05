@@ -6,6 +6,8 @@
   <meta name="theme-color" content="#f5f1e8">
   <title>DEAL — Publier une annonce</title>
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="deal-pages.css">
+  <script src="script.js?v=6" defer></script>
 </head>
 <body data-page="publish">
   <header class="site-header">
@@ -25,11 +27,11 @@
 
   <main class="page-shell publish-page">
     <div class="breadcrumbs"><a href="index.html">Accueil</a><span aria-hidden="true">/</span><span>Publier</span></div>
-    <h1 class="publish-title">Publier une annonce</h1>
+    <h1 class="publish-title" id="publish-title">Publier une annonce</h1>
 
-    <form id="publish-form" class="publish-form" enctype="multipart/form-data">
+    <form id="publish-form" class="publish-form">
       <label>Titre<input name="titre" required maxlength="150" placeholder="Ex : iPhone 13 · 128 Go"></label>
-      <label>Prix (MAD)<input name="prix" type="number" step="0.01" min="0" required placeholder="6500"></label>
+      <label>Prix (MAD)<input name="prix" type="number" step="0.01" min="1" required placeholder="6500"></label>
       <label>Ville<input name="ville" required maxlength="100" placeholder="Rabat"></label>
       <label>Catégorie
         <select name="categorie" required>
@@ -39,8 +41,14 @@
           <option value="mode">Mode</option>
         </select>
       </label>
-      <label>Description<textarea name="description" rows="4" placeholder="Décrivez votre article"></textarea></label>
-      <label>Photo<input name="photo" type="file" accept="image/jpeg,image/png,image/webp" required></label>
+      <label>Description<textarea name="description" rows="4" required minlength="10" placeholder="Décrivez votre article"></textarea></label>
+      <label>Caractéristiques (séparées par des virgules)<input name="specs" maxlength="1000" placeholder="Neuf, 128 Go, Bleu"></label>
+      <label>Photo principale <small>JPG, PNG, WebP · 2 Mo maximum</small><input name="upload1" type="file" accept="image/jpeg,image/png,image/webp"></label>
+      <label>Lien de la photo principale (facultatif)<input name="photo1" type="url" placeholder="https://..."></label>
+      <label>Photo 2 (facultative)<input name="upload2" type="file" accept="image/jpeg,image/png,image/webp"></label>
+      <label>Lien de la photo 2 (facultatif)<input name="photo2" type="url" placeholder="https://..."></label>
+      <label>Photo 3 (facultative)<input name="upload3" type="file" accept="image/jpeg,image/png,image/webp"></label>
+      <label>Lien de la photo 3 (facultatif)<input name="photo3" type="url" placeholder="https://..."></label>
       <button class="button button-primary" id="publish-button" type="submit">Publier</button>
       <p id="message" class="publish-message" aria-live="polite"></p>
     </form>
@@ -51,29 +59,7 @@
     <span>© 2026 DEAL · Le commerce, en toute confiance.</span>
   </footer>
 
-  <script>
-    const form = document.getElementById('publish-form');
-    const message = document.getElementById('message');
-    const button = document.getElementById('publish-button');
 
-    form.addEventListener('submit', async (event) => {
-      event.preventDefault();
-      button.disabled = true;
-      message.textContent = 'Envoi en cours...';
-      try {
-        const response = await fetch('/api/publier.php', { method: 'POST', body: new FormData(form) });
-        const data = await response.json();
-        if (data.success) {
-          message.textContent = 'Annonce publiée ✓';
-          form.reset();
-        } else {
-          message.textContent = data.error || 'Erreur';
-        }
-      } catch {
-        message.textContent = 'Erreur réseau, réessayez.';
-      }
-      button.disabled = false;
-    });
-  </script>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
 </body>
 </html>

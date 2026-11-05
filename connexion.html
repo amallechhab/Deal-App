@@ -7,7 +7,8 @@
   <meta name="description" content="Connectez-vous à votre compte DEAL pour retrouver vos favoris et échanger en toute confiance.">
   <title>DEAL — Connexion</title>
   <link rel="stylesheet" href="style.css">
-  <script src="script.js?v=2" defer></script>
+  <link rel="stylesheet" href="deal-pages.css">
+  <script src="script.js?v=6" defer></script>
 </head>
 <body data-page="login">
   <header class="site-header">
@@ -31,7 +32,7 @@
         <div class="input-wrap"><span class="field-icon" aria-hidden="true">✉</span><input id="email" name="email" type="email" placeholder="vous@exemple.com" autocomplete="email" required></div>
         <label for="password">Mot de passe</label>
         <div class="input-wrap"><span class="field-icon lock-icon" aria-hidden="true">♙</span><input id="password" name="password" type="password" placeholder="Votre mot de passe" autocomplete="current-password" required minlength="6"><button class="password-toggle" type="button" aria-label="Afficher le mot de passe" aria-pressed="false">◉</button></div>
-        <button class="forgot-link" id="forgot-password" type="button">Mot de passe oublié ?</button>
+        
         <button class="button button-primary login-submit" type="submit">Se connecter</button>
       </form>
       <div class="signup-prompt"><span>Pas encore de compte ?</span><button id="create-account" type="button">Créer un compte</button></div>
