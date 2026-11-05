@@ -19,3 +19,9 @@
 .header-actions{margin-left:auto}
 .deal-form input[type=file]{max-width:100%}
 }
+
+.publish-message { min-height: 0; line-height: 1.5; }
+.publish-message.is-error { color: #ae3737; }
+.publish-message a, .deal-auth-notice a { color: #214a88; font-weight: 700; }
+.deal-auth-notice { margin-top: 20px; padding: 16px 18px; border: 1px solid #d9dfeb; border-radius: 12px; background: #fff; color: #34425b; }
+.publish-form input[name="photo"] { font-size: .8rem; }
