@@ -25,3 +25,9 @@
 .publish-message a, .deal-auth-notice a { color: #214a88; font-weight: 700; }
 .deal-auth-notice { margin-top: 20px; padding: 16px 18px; border: 1px solid #d9dfeb; border-radius: 12px; background: #fff; color: #34425b; }
 .publish-form input[name="photo"] { font-size: .8rem; }
+
+/* Authentication and favorite feedback, integrated into the existing DEAL theme */
+.deal-auth-inline { margin:10px 8px 5px;padding:10px 12px;border:1px solid #dbe2ed;border-radius:10px;background:#f7f9fd;color:#28395d;font-size:.76rem;line-height:1.55 }
+.deal-auth-inline a { color:#254b88;font-weight:700 }
+.detail-actions .deal-auth-inline { flex-basis:100%; }
+.deal-form-error { color:#ae3737;font-size:.83rem;line-height:1.45;margin-top:12px }
