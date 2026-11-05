@@ -25,7 +25,41 @@ function showToast(message) {
 
 function getFavorites(){return new Set(session.favorites);}
 function saveFavorites(favs){session.favorites=[...favs];}
-function requireLogin(){if(session.user)return true;showToast('Connectez-vous pour continuer.');return false;}
+function safeNext() {
+  const p=new URLSearchParams(location.search).get('next');
+  if(!p || p.startsWith('//') || /[\\\\]/.test(p))return 'mes-annonces.html';
+  try{
+    const url=new URL(p,location.origin);
+    if(url.origin!==location.origin || !/^\/(?:index|annonces|produit|publier|mes-annonces|favoris|profil|messages|vendeur)\.html$/.test(url.pathname))
+      return 'mes-annonces.html';
+    return url.pathname.slice(1)+url.search;
+  }catch{return 'mes-annonces.html';}
+}
+function currentReturnPath(){
+ const name=location.pathname.split('/').pop()||'index.html';
+ return name+location.search;
+}
+function authHref(pageName){
+ return pageName+'?next='+encodeURIComponent(
+   page==='login'||page==='signup'?safeNext():currentReturnPath()
+ );
+}
+function showLoginPrompt(container){
+ if(!container || container.querySelector('.deal-auth-inline'))return;
+ const n=document.createElement('div');n.className='deal-auth-inline';
+ const txt=document.createElement('span');txt.textContent='Pour enregistrer vos favoris, ';
+ const a=document.createElement('a');a.href=authHref('connexion.html');a.textContent='connectez-vous';
+ const separator=document.createTextNode(' ou ');
+ const b=document.createElement('a');b.href=authHref('inscription.html');b.textContent='créez un compte';
+ n.append(txt,a,separator,b,document.createTextNode('.'));
+ container.append(n);
+}
+function requireLogin(container=null){
+ if(session.user)return true;
+ showToast('Connectez-vous pour enregistrer vos favoris.');
+ showLoginPrompt(container);
+ return false;
+}
 function photoUrl(photo, width = 700) {
   if(!photo)return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent("<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"900\" height=\"600\" viewBox=\"0 0 900 600\"><rect width=\"900\" height=\"600\" fill=\"#f5f1e8\"/><rect x=\"240\" y=\"200\" width=\"420\" height=\"200\" rx=\"28\" fill=\"#dfe9e3\"/><text x=\"450\" y=\"325\" font-family=\"Arial,sans-serif\" font-weight=\"bold\" font-size=\"58\" text-anchor=\"middle\" fill=\"#295b49\">DEAL</text></svg>");
   if(/^https?:\/\//i.test(photo)||photo.startsWith('/api/')||photo.startsWith('data:image/'))return photo;
@@ -75,13 +109,18 @@ function createListingCard(listing, favorites = getFavorites()) {
   favorite.setAttribute("aria-pressed", String(isFavorite));
   favorite.textContent = isFavorite ? "♥" : "♡";
   favorite.addEventListener("click", async () => {
-    if(!requireLogin())return;
+    if(!requireLogin(card))return;
     const nextFavorites = getFavorites();
     const willBeFavorite = !nextFavorites.has(listing.id);
     if (willBeFavorite) nextFavorites.add(listing.id);
     else nextFavorites.delete(listing.id);
     try{await api("favorite",{id:listing.id,enabled:willBeFavorite});}catch(error){showToast(error.message);return;}
     saveFavorites(nextFavorites);
+    if(page==='favorites' && !willBeFavorite){
+      card.remove();
+      const counter=document.getElementById('favorite-count');
+      if(counter)counter.textContent=document.querySelectorAll('#favorite-listings .listing-card').length+' annonce(s) favorite(s)';
+    }
     favorite.setAttribute("aria-label", willBeFavorite ? "Retirer des favoris" : "Ajouter aux favoris");
     favorite.setAttribute("aria-pressed", String(willBeFavorite));
     favorite.classList.toggle("is-favorite", willBeFavorite);
@@ -235,7 +274,7 @@ async function initProduct() {
   updateFavoriteButton();
 
   favoriteButton.addEventListener("click", async () => {
-    if(!requireLogin())return;
+    if(!requireLogin(document.querySelector('.detail-actions')||document.querySelector('.product-info')))return;
     const favorites = getFavorites();
     if (favorites.has(selectedListing.id)) favorites.delete(selectedListing.id);
     else favorites.add(selectedListing.id);
@@ -298,22 +337,43 @@ async function initProduct() {
 }
 
 
+function showFormError(form,message){
+ let node=form.querySelector('.deal-form-error');
+ if(!node){node=document.createElement('p');node.className='deal-form-error';node.setAttribute('role','alert');form.append(node);}
+ node.textContent=message;
+}
 function initLogin(){
- const toggle=document.querySelector('.password-toggle');
- toggle?.addEventListener('click',()=>{const input=document.getElementById('password');input.type=input.type==='password'?'text':'password';});
- document.getElementById('login-form')?.addEventListener('submit',async e=>{
- e.preventDefault();const button=e.currentTarget.querySelector('[type=submit]');button.disabled=true;
- try{await api('login',{email:document.getElementById('email').value,password:document.getElementById('password').value});location.href='mes-annonces.html';}
- catch(err){showToast(err.message);button.disabled=false;}
+ const form=document.getElementById('login-form');
+ document.querySelector('.password-toggle')?.addEventListener('click',()=>{
+  const input=document.getElementById('password');
+  const reveal=input.type==='password';
+  input.type=reveal?'text':'password';
+  document.querySelector('.password-toggle')?.setAttribute('aria-pressed',String(reveal));
  });
- document.getElementById('create-account')?.addEventListener('click',()=>location.href='inscription.html');
- document.getElementById('forgot-password')?.addEventListener('click',()=>showToast('Réinitialisation non disponible.'));
+ const signup=document.getElementById('create-account');
+ if(signup)signup.addEventListener('click',()=>location.href=authHref('inscription.html'));
+ form?.addEventListener('submit',async e=>{
+  e.preventDefault();const btn=form.querySelector('[type=submit]');btn.disabled=true;
+  try{
+   await api('login',{email:form.elements.email.value,password:form.elements.password.value});
+   const state=await api('session');
+   if(!state.user)throw Error('La session n’a pas pu être ouverte.');
+   location.href=safeNext();
+  }catch(err){showFormError(form,err.message);btn.disabled=false;}
+ });
 }
 function initSignup(){
- document.getElementById('signup-form')?.addEventListener('submit',async e=>{
- e.preventDefault();const btn=e.currentTarget.querySelector('[type=submit]');btn.disabled=true;
- try{await api('signup',Object.fromEntries(new FormData(e.currentTarget)));location.href='mes-annonces.html';}
- catch(err){showToast(err.message);btn.disabled=false;}
+ const form=document.getElementById('signup-form');
+ const loginLink=document.querySelector('.deal-panel a[href="connexion.html"]');
+ if(loginLink)loginLink.href=authHref('connexion.html');
+ form?.addEventListener('submit',async e=>{
+  e.preventDefault();const btn=form.querySelector('[type=submit]');btn.disabled=true;
+  try{
+   await api('signup',Object.fromEntries(new FormData(form)));
+   const state=await api('session');
+   if(!state.user)throw Error('Le compte a été créé, mais la session ne s’est pas ouverte.');
+   location.href=safeNext();
+  }catch(err){showFormError(form,err.message);btn.disabled=false;}
  });
 }
 function initNavigation(){
@@ -338,11 +398,11 @@ function showAuthNotice() {
   note.className = 'deal-auth-notice';
   note.append(document.createTextNode('Pour accéder à cette fonctionnalité, '));
   const login = document.createElement('a');
-  login.href = 'connexion.html';
+  login.href = authHref('connexion.html');
   login.textContent = 'connectez-vous';
   note.append(login, document.createTextNode(' ou '));
   const signup = document.createElement('a');
-  signup.href = 'inscription.html';
+  signup.href = authHref('inscription.html');
   signup.textContent = 'créez un compte';
   note.append(signup, document.createTextNode('.'));
   panel.append(note);
@@ -353,6 +413,25 @@ async function initPublish(){
   const notice = document.getElementById('message');
   const photo = form.elements.photo;
   const id = new URLSearchParams(location.search).get('id');
+  const draftKey='deal-publish-draft-v1';
+  const draftFields=['titre','prix','ville','categorie','description'];
+  if(!id){
+    try{
+      const saved=JSON.parse(sessionStorage.getItem(draftKey)||'null');
+      if(saved&&typeof saved==='object'){
+        for(const field of draftFields){
+          if(typeof saved[field]==='string'&&form.elements[field])form.elements[field].value=saved[field];
+        }
+      }
+    }catch{}
+    const saveDraft=()=>{
+      const obj={};
+      for(const field of draftFields)obj[field]=form.elements[field]?.value||'';
+      try{sessionStorage.setItem(draftKey,JSON.stringify(obj));}catch{}
+    };
+    form.addEventListener('input',saveDraft);
+    form.addEventListener('change',saveDraft);
+  }
 
   function showMessage(message, isError=true){
     notice.replaceChildren();
@@ -363,11 +442,14 @@ async function initPublish(){
     notice.replaceChildren();
     notice.append(document.createTextNode('Pour publier, '));
     const link=document.createElement('a');
-    link.href='connexion.html';link.textContent='connectez-vous';
+    link.href=authHref('connexion.html');link.textContent='connectez-vous';
     notice.append(link,document.createTextNode(' ou '));
     const signup=document.createElement('a');
-    signup.href='inscription.html';signup.textContent='créez un compte';
+    signup.href=authHref('inscription.html');signup.textContent='créez un compte';
     notice.append(signup,document.createTextNode('.'));
+    if(sessionStorage.getItem(draftKey)){
+      notice.append(document.createTextNode(' Votre brouillon texte est conservé sur cet appareil. Après connexion, sélectionnez à nouveau la photo.'));
+    }
   }
 
   try{
@@ -443,7 +525,10 @@ async function initPublish(){
       if(!values.photo1)throw new Error('Veuillez choisir une photo.');
       button.textContent='Enregistrement...';
       const saved=await api(id?'update':'publish',{...values,id});
-      if(!id)form.reset();
+      if(!id){
+        form.reset();
+        try{sessionStorage.removeItem(draftKey);}catch{}
+      }
       notice.replaceChildren();
       notice.classList.remove('is-error');
       notice.append(document.createTextNode(id?'Annonce modifiée avec succès. ':'Annonce publiée avec succès. '));
@@ -531,13 +616,13 @@ async function initProfile(){
   initNavigation();
   const headerLocation=document.querySelector('.header-location');
   if(headerLocation)headerLocation.textContent='⌖ '+(session.user?.ville||'Maroc');
+  if(page==='login'){initLogin();return;}
+  if(page==='signup'){initSignup();return;}
+  if(page==='publish'){await initPublish();return;}
   ANNONCES=(await api('list')).annonces;
   if(page==='home')await initHome();
   if(page==='listings')await initListings();
   if(page==='product')await initProduct();
-  if(page==='login')initLogin();
-  if(page==='signup')initSignup();
-  if(page==='publish')await initPublish();
   if(page==='my-listings')await initMyListings();
   if(page==='messages')await initMessages();
    if(page==='favorites')await initFavorites();
