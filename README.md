@@ -9,6 +9,7 @@ Application de petites annonces, réalisée pour un projet de formation.
 - Frontend : HTML5, CSS3, JavaScript (Fetch API).
 - Backend : Node.js avec une fonction Vercel `api/index.js`.
 - Base de données : MySQL (service Aiven) via `mysql2`.
+- Photos des nouvelles annonces : Cloudinary (API Upload, depuis le backend Vercel).
 - Les informations sont enregistrées dans MySQL ; il n'y a plus de tableau fixe d'annonces dans `script.js`.
 
 ## Fonctionnalités
@@ -20,7 +21,7 @@ Application de petites annonces, réalisée pour un projet de formation.
 | Fiche annonce et profil vendeur | `annonces`, `utilisateurs`, `caracteristiques` |
 | Inscription / connexion / déconnexion | `utilisateurs` ; mots de passe hachés avec scrypt |
 | Publication, modification et suppression | `annonces` et tables liées |
-| Upload d’une photo depuis le formulaire (2 Mo max) | `images_upload` + `photos_annonces` |
+| Upload d’une photo depuis le formulaire (2 Mo max) | Cloudinary stocke l’image, MySQL `photos_annonces` conserve son URL sécurisée |
 | Favoris personnels | `favoris` |
 | Messages envoyés et reçus | `messages` |
 | Profil personnel modifiable | `utilisateurs` |
@@ -51,9 +52,22 @@ DB_PORT       = port MySQL Aiven
 DB_USER       = utilisateur MySQL Aiven
 DB_PASSWORD   = mot de passe MySQL Aiven
 DB_NAME       = nom de la base existante (souvent defaultdb)
+CLOUDINARY_URL = cloudinary://API_KEY:API_SECRET@CLOUD_NAME
 ```
 
-**Attention :** les valeurs doivent être lues directement dans la console Aiven. Les connecteurs peuvent masquer les secrets ; ne collez jamais des chaînes censurées ou des astérisques dans les variables. Ne commitez pas les mots de passe. Après toute modification, redéployez l'application.
+**Attention :** les valeurs doivent être lues directement dans la console Aiven. Les connecteurs peuvent masquer les secrets ; ne collez jamais des chaînes censurées ou des astérisques dans les variables. Ne commitez pas les mots de passe ni la clé secrète Cloudinary. Après toute modification, redéployez l'application.
+
+## Images Cloudinary
+
+Le formulaire `publier.html` envoie les photos au backend Vercel (`/api/index?action=upload`).
+
+- Le serveur vérifie que l'utilisateur est connecté et que l'image est un fichier JPG, PNG ou WebP de 2 Mo maximum.
+- Le backend charge l'image dans le dossier Cloudinary `deal/annonces` via l'API authentifiée. **Jamais de clé secrète Cloudinary dans JavaScript côté navigateur.**
+- Cloudinary retourne une URL HTTPS `secure_url`, enregistrée ensuite dans `photos_annonces` (MySQL).
+- Les images plus anciennes qui sont déjà dans la table `images_upload` de MySQL restent accessibles par `/api/index?action=photo&id=...` : elles ne sont pas détruites lors du changement.
+- Le test serveur `/api/index?action=media-health` vérifie que la configuration du compte Cloudinary permet un appel API authentifié, sans révéler les identifiants.
+
+Le backend requiert `CLOUDINARY_URL` dans les variables d'environnement Vercel **Production et Preview**. Après toute mise à jour des variables, relancer un déploiement. Ne jamais mettre cette valeur dans le code GitHub ou dans `script.js`.
 
 Le code crée ses tables manquantes avec `CREATE TABLE IF NOT EXISTS` au premier appel. Le schéma est également disponible dans `database/deal_app_schema.sql`.
 
@@ -67,7 +81,7 @@ Une réponse comme `{"ok":true,"database":"connected","annonces":4}` indique que
 1. Afficher les annonces depuis la base.
 2. Rechercher par ville/mot-clé et filtrer par catégorie.
 3. Créer un compte et se connecter.
-4. Publier une annonce avec une image depuis l'ordinateur.
+4. Publier une annonce avec une image depuis l'ordinateur, puis retrouver le fichier dans le dossier Cloudinary `deal/annonces`.
 5. Modifier l'annonce et montrer le changement immédiatement.
 6. Ajouter l'annonce aux favoris, puis la retrouver dans « Mes favoris ».
 7. Utiliser un deuxième compte pour envoyer un message au vendeur.
@@ -99,11 +113,12 @@ Les anciennes annonces anonymes sont associées à un compte de démonstration i
 ## Tests après déploiement
 1. `/api/index?action=health` doit donner un JSON avec `ok:true`.
 2. `/api/index?action=list` doit renvoyer le tableau `annonces`.
-3. Créer un utilisateur via `inscription.html`.
-4. Publier une nouvelle annonce et vérifier sa présence après actualisation.
-5. Modifier l'annonce, puis retirer l'annonce.
-6. Tester `favoris.html` après reconnexion.
-7. Utiliser deux comptes distincts : envoyer un message depuis la fiche annonce, consulter `messages.html`, cliquer « Répondre ».
+3. `/api/index?action=media-health` doit répondre avec `cloudinary:connected`.
+4. Créer un utilisateur via `inscription.html`.
+5. Publier une nouvelle annonce avec photo et vérifier sa présence après actualisation.
+6. Modifier l'annonce, puis retirer l'annonce.
+7. Tester `favoris.html` après reconnexion.
+8. Utiliser deux comptes distincts : envoyer un message depuis la fiche annonce, consulter `messages.html`, cliquer « Répondre ».
 
 **En cas de réponse HTTP 500 + ER_ACCESS_DENIED_ERROR :** les variables `DB_USER` / `DB_PASSWORD` (ou autre paramètre DB_*) de Vercel ne correspondent pas aux identifiants Aiven. Saisir de nouvelles valeurs dans Vercel > Project Settings > Environment Variables en se basant directement sur Aiven > MySQL > Overview. Ne pas saisir `[REDACTED]` ni partager le mot de passe dans GitHub ou ce chat. Puis redéployer.
 
