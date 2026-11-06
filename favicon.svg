@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="DEAL">
+ <rect width="64" height="64" rx="15" fill="#f5f1e8"/>
+ <g fill="none" stroke="#214680" stroke-width="4.4" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M13 26a21 21 0 0 1 34-8l4 5M51 12v11H40M51 38a21 21 0 0 1-34 8l-4-5M13 52V41h11"/>
+  <path d="m25 33 6 6 11-16"/>
+ </g>
+</svg>
