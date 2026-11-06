@@ -22,6 +22,15 @@ Une page destinée à l'enseignant est intégrée au site : **[Le projet — Out
 
 **À compléter avant la soutenance :** vérifier que le professeur peut ouvrir les espaces privés (Figma, Jira et GitLab).
 
+## Améliorations du catalogue
+
+- **15 catégories** disponibles via MySQL, avec un choix de type d'annonce adapté à la catégorie.
+- **Pays et ville** enregistrés sur chaque annonce. Les filtres des pages Accueil et Annonces consultent la base MySQL.
+- **18 pays suggérés** et une liste de villes (modifiable : vous pouvez saisir une autre ville). La liste inclut aussi les localisations déjà présentes dans les annonces.
+- **Jusqu'à 5 photos**, JPG/PNG/WebP (2 Mo maximum par image), téléchargées vers Cloudinary. MySQL conserve leurs URLs et l'ordre d'affichage.
+- **Favoris** liés au compte MySQL ; pour un visiteur non connecté, un seul message propose la connexion sans ajouter une boîte à chaque carte.
+- Les annonces préexistantes sont conservées : les colonnes `pays` et `type_annonce` sont ajoutées par migration non destructive. Les annonces plus anciennes gardent `Maroc` par défaut.
+
 ## Architecture
 
 - Frontend : HTML5, CSS3, JavaScript (Fetch API).
@@ -39,7 +48,7 @@ Une page destinée à l'enseignant est intégrée au site : **[Le projet — Out
 | Fiche annonce et profil vendeur | `annonces`, `utilisateurs`, `caracteristiques` |
 | Inscription / connexion / déconnexion | `utilisateurs` ; mots de passe hachés avec scrypt |
 | Publication, modification et suppression | `annonces` et tables liées |
-| Upload d’une photo depuis le formulaire (2 Mo max) | Cloudinary stocke l’image, MySQL `photos_annonces` conserve son URL sécurisée |
+| Upload de 1 à 5 photos depuis le formulaire (2 Mo max par photo) | Cloudinary stocke l’image, MySQL `photos_annonces` conserve son URL sécurisée |
 | Favoris personnels | `favoris` |
 | Messages envoyés et reçus | `messages` |
 | Profil personnel modifiable | `utilisateurs` |
@@ -133,7 +142,7 @@ Les anciennes annonces anonymes sont associées à un compte de démonstration i
 2. `/api/index?action=list` doit renvoyer le tableau `annonces`.
 3. `/api/index?action=media-health` doit répondre avec `cloudinary:connected`.
 4. Créer un utilisateur via `inscription.html`.
-5. Publier une nouvelle annonce avec photo et vérifier sa présence après actualisation.
+5. Publier une nouvelle annonce avec plusieurs photos et vérifier sa présence après actualisation.
 6. Modifier l'annonce, puis retirer l'annonce.
 7. Tester `favoris.html` après reconnexion.
 8. Utiliser deux comptes distincts : envoyer un message depuis la fiche annonce, consulter `messages.html`, cliquer « Répondre ».

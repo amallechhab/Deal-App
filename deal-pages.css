@@ -183,3 +183,42 @@
 .deal-home-project .button{flex-shrink:0}
 @media(max-width:960px){.deal-tools-hero{grid-template-columns:1fr;gap:22px}.deal-tech-summary{max-width:600px}.deal-tools-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:650px){.site-header .main-nav{gap:16px}.deal-tools-hero{padding-bottom:25px}.deal-tools-hero h1{font-size:2.48rem}.deal-tools-actions .button{flex:1 1 auto}.deal-tech-summary{padding:18px}.deal-tools-grid{grid-template-columns:1fr}.deal-tool-card{min-height:0;padding:20px}.deal-tools-section{padding-bottom:24px}.deal-tools-cta,.deal-home-project{flex-direction:column;align-items:flex-start;padding:22px}.deal-tools-cta>.button,.deal-home-project .button{width:100%}.deal-tools-page{padding-bottom:46px}}
+
+
+/* DEAL catalogue: locations, flexible category filters, and multi-photo listings */
+.deal-location-link{display:inline-flex;align-items:center;white-space:nowrap;gap:5px;color:var(--navy);text-decoration:none;font-size:.78rem;font-weight:700;border-radius:7px;padding:5px 7px}
+.deal-location-link:hover{background:#e9eef5}
+.deal-location-link:focus-visible{outline:2px solid #6f94c5;outline-offset:2px}
+.deal-hero-location{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:13px 0 0}
+.deal-hero-location label,.deal-listing-filters label{display:grid;gap:6px;font-size:.74rem;font-weight:700;color:var(--ink)}
+.deal-hero-location select,.deal-hero-location input,.deal-listing-filters select,.deal-listing-filters input{width:100%;min-width:0;min-height:45px;padding:10px 12px;border:1px solid #dfdcd5;border-radius:11px;background:#fff;color:var(--text);font:inherit;font-size:.83rem;box-shadow:0 4px 12px rgb(32 42 53 / 3%)}
+.deal-hero-location input:focus,.deal-hero-location select:focus,.deal-listing-filters input:focus,.deal-listing-filters select:focus{outline:2px solid #8faed8;outline-offset:1px}
+.deal-listing-filters{display:grid;grid-template-columns:1fr 1fr 1fr auto;align-items:end;gap:12px;margin:0 0 26px;padding:18px;background:rgba(255,255,255,.60);border:1px solid #e6e0d7;border-radius:15px;scroll-margin-top:100px}
+.deal-listing-filters .button{min-height:45px;white-space:nowrap;font-size:.75rem}
+.category-list{justify-content:flex-end}
+.category-list .category-chip{min-height:34px;padding:0 11px}
+.deal-field-pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}
+.publish-form .deal-field-pair label{min-width:0}
+.publish-form select{min-width:0}
+.deal-multi-photo-preview{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+.deal-multi-photo-preview[hidden]{display:none}
+.deal-photo-item{position:relative;min-width:0;overflow:hidden;border:1px solid #e2ded8;border-radius:11px;background:#f9f8f5}
+.deal-photo-item img{display:block;width:100%;height:112px;object-fit:cover}
+.deal-photo-item span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:5px 7px;color:#747685;font-size:.69rem}
+.deal-photo-item button{position:absolute;right:5px;top:5px;display:grid;place-items:center;width:26px;height:26px;border:0;border-radius:50%;background:#fff;color:#a33;font-size:1.15rem;font-weight:800;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.12)}
+.deal-toast-action{display:flex;align-items:center;gap:6px;flex-wrap:wrap;max-width:360px}
+.deal-toast-action a{color:#fff;font-weight:800;text-decoration:underline;text-underline-offset:3px}
+.deal-toast-action a:focus-visible{outline:2px solid #fff;outline-offset:3px}
+@media(max-width:1050px){.deal-listing-filters{grid-template-columns:repeat(2,minmax(0,1fr))}.deal-listing-filters .button{width:100%}.category-list{justify-content:flex-start}}
+@media(max-width:650px){
+ .deal-hero-location{gap:8px}
+ .deal-listing-filters{grid-template-columns:1fr 1fr;padding:12px;gap:9px}
+ .deal-listing-filters label:last-of-type{grid-column:1/-1}
+ .deal-listing-filters .button{grid-column:1/-1}
+ .category-list{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:thin;padding:4px 0 9px;justify-content:flex-start;gap:6px}
+ .category-list .category-chip{flex:none}
+ .deal-field-pair{grid-template-columns:1fr;gap:12px}
+ .deal-multi-photo-preview{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .deal-photo-item img{height:105px}
+}
+@media(max-width:380px){.deal-hero-location{grid-template-columns:1fr}}
