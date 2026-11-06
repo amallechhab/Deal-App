@@ -30,12 +30,12 @@ function cloudinaryConfig() {
 function cloudinaryAuth(cfg) {
   return 'Basic '+Buffer.from(cfg.key+':'+cfg.secret).toString('base64');
 }
-async function uploadToCloudinary(dataUrl) {
+async function uploadToCloudinary(dataUrl,folder='deal/annonces') {
   const cfg=cloudinaryConfig();
   const uploadUrl='https://api.cloudinary.com/v1_1/'+encodeURIComponent(cfg.cloudName)+'/image/upload';
   const data=new FormData();
   data.set('file',dataUrl);
-  data.set('folder','deal/annonces');
+  data.set('folder',folder);
   data.set('public_id',randomUUID());
   data.set('overwrite','false');
   let response;
@@ -124,7 +124,7 @@ async function setup() {
       const db = database();
       await backupLegacyTable(db);
       const statements = [
-        "CREATE TABLE IF NOT EXISTS utilisateurs (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, nom VARCHAR(100) NOT NULL, email VARCHAR(190) NOT NULL UNIQUE, mot_de_passe VARCHAR(255) NOT NULL, ville VARCHAR(100) DEFAULT NULL, actif TINYINT(1) NOT NULL DEFAULT 1, cree_le TIMESTAMP DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+        "CREATE TABLE IF NOT EXISTS utilisateurs (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, nom VARCHAR(100) NOT NULL, email VARCHAR(190) NOT NULL UNIQUE, mot_de_passe VARCHAR(255) NOT NULL, ville VARCHAR(100) DEFAULT NULL, avatar_url VARCHAR(1500) DEFAULT NULL, actif TINYINT(1) NOT NULL DEFAULT 1, cree_le TIMESTAMP DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
         "CREATE TABLE IF NOT EXISTS categories (slug VARCHAR(30) PRIMARY KEY, nom VARCHAR(80) NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
         "CREATE TABLE IF NOT EXISTS annonces (id VARCHAR(80) PRIMARY KEY, utilisateur_id INT UNSIGNED NOT NULL, categorie VARCHAR(30) NOT NULL, type_annonce VARCHAR(80) DEFAULT '', titre VARCHAR(180) NOT NULL, prix DECIMAL(12,2) NOT NULL, ville VARCHAR(100) NOT NULL, pays VARCHAR(80) NOT NULL DEFAULT 'Maroc', description TEXT NOT NULL, alt_photo VARCHAR(255) DEFAULT '', statut ENUM('active','retiree') NOT NULL DEFAULT 'active', cree_le TIMESTAMP DEFAULT CURRENT_TIMESTAMP, INDEX idx_statut (statut), INDEX idx_categorie (categorie), FOREIGN KEY (utilisateur_id) REFERENCES utilisateurs(id), FOREIGN KEY (categorie) REFERENCES categories(slug)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
         "CREATE TABLE IF NOT EXISTS photos_annonces (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, annonce_id VARCHAR(80) NOT NULL, url VARCHAR(1500) NOT NULL, position TINYINT UNSIGNED NOT NULL, UNIQUE KEY unique_photo_position (annonce_id,position), FOREIGN KEY (annonce_id) REFERENCES annonces(id) ON DELETE CASCADE) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
@@ -134,6 +134,10 @@ async function setup() {
         "CREATE TABLE IF NOT EXISTS messages (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, annonce_id VARCHAR(80) NOT NULL, expediteur_id INT UNSIGNED NOT NULL, destinataire_id INT UNSIGNED NOT NULL, contenu TEXT NOT NULL, cree_le TIMESTAMP DEFAULT CURRENT_TIMESTAMP, INDEX idx_destinataire (destinataire_id,cree_le), FOREIGN KEY (annonce_id) REFERENCES annonces(id) ON DELETE CASCADE, FOREIGN KEY (expediteur_id) REFERENCES utilisateurs(id), FOREIGN KEY (destinataire_id) REFERENCES utilisateurs(id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
       ];
       for (const sql of statements) await db.query(sql);
+      // Additive avatar migration: never remove an existing user or profile.
+      const [userColumns]=await db.query('SHOW COLUMNS FROM utilisateurs');
+      if(!userColumns.some(c=>c.Field==='avatar_url'))
+        await db.query('ALTER TABLE utilisateurs ADD COLUMN avatar_url VARCHAR(1500) DEFAULT NULL AFTER ville');
       // Migration additive: keeps every existing listing intact.
       const [cols]=await db.query('SHOW COLUMNS FROM annonces');
       const present=new Set(cols.map(c=>c.Field));
@@ -194,13 +198,13 @@ function parseSession(req) {
 }
 async function optionalUser(req){
   const id=parseSession(req); if(!id)return null;
-  const [[u]]=await database().execute('SELECT id,nom,email,ville FROM utilisateurs WHERE id=? AND actif=1',[id]);
+  const [[u]]=await database().execute('SELECT id,nom,email,ville,avatar_url,cree_le FROM utilisateurs WHERE id=? AND actif=1',[id]);
   return u||null;
 }
 async function user(req){const u=await optionalUser(req);if(!u)httpError('Connectez-vous pour continuer.',401);return u;}
 async function listings(where="a.statut='active'",params=[],limit=100){
   const db=database();
-  const [items]=await db.execute("SELECT a.id,a.utilisateur_id,a.categorie,a.type_annonce,a.titre,a.prix,a.ville,a.pays,a.description,a.alt_photo,a.cree_le,c.nom AS categoryLabel,u.nom AS sellerName,u.actif AS sellerActive,u.cree_le AS sellerCreatedAt FROM annonces a JOIN categories c ON c.slug=a.categorie JOIN utilisateurs u ON u.id=a.utilisateur_id WHERE "+where+" ORDER BY a.cree_le DESC,a.id ASC LIMIT "+Math.min(Math.max(1,limit),100),params);
+  const [items]=await db.execute("SELECT a.id,a.utilisateur_id,a.categorie,a.type_annonce,a.titre,a.prix,a.ville,a.pays,a.description,a.alt_photo,a.cree_le,c.nom AS categoryLabel,u.nom AS sellerName,u.avatar_url AS sellerAvatar,u.actif AS sellerActive,u.cree_le AS sellerCreatedAt FROM annonces a JOIN categories c ON c.slug=a.categorie JOIN utilisateurs u ON u.id=a.utilisateur_id WHERE "+where+" ORDER BY a.cree_le DESC,a.id ASC LIMIT "+Math.min(Math.max(1,limit),100),params);
   if(!items.length)return [];
   const qs=items.map(()=>'?').join(',');
   const [photos]=await db.query('SELECT annonce_id,url FROM photos_annonces WHERE annonce_id IN ('+qs+') ORDER BY position',items.map(x=>x.id));
@@ -208,7 +212,7 @@ async function listings(where="a.statut='active'",params=[],limit=100){
   const groupedPhotos={};const groupedSpecs={};
   for(const p of photos)(groupedPhotos[p.annonce_id]??=[]).push(p.url);
   for(const s of specs)(groupedSpecs[s.annonce_id]??=[]).push(s.valeur);
-  return items.map(r=>({id:r.id,cat:r.categorie,categoryLabel:r.categoryLabel,title:r.titre,price:new Intl.NumberFormat('fr-FR',{maximumFractionDigits:0}).format(r.prix)+' MAD',priceNumber:Number(r.prix),city:r.ville,country:r.pays||'Maroc',type:r.type_annonce||'',description:r.description,alt:r.alt_photo||r.titre,photos:groupedPhotos[r.id]||[fallbackPhoto],specs:groupedSpecs[r.id]||[],sellerId:r.utilisateur_id,sellerName:r.sellerName,sellerActive:!!r.sellerActive,sellerCreatedAt:r.sellerCreatedAt instanceof Date?r.sellerCreatedAt.toISOString():String(r.sellerCreatedAt),createdAt:r.cree_le instanceof Date?r.cree_le.toISOString():String(r.cree_le)}));
+  return items.map(r=>({id:r.id,cat:r.categorie,categoryLabel:r.categoryLabel,title:r.titre,price:new Intl.NumberFormat('fr-FR',{maximumFractionDigits:0}).format(r.prix)+' MAD',priceNumber:Number(r.prix),city:r.ville,country:r.pays||'Maroc',type:r.type_annonce||'',description:r.description,alt:r.alt_photo||r.titre,photos:groupedPhotos[r.id]||[fallbackPhoto],specs:groupedSpecs[r.id]||[],sellerId:r.utilisateur_id,sellerName:r.sellerName,sellerAvatar:r.sellerAvatar||'',sellerActive:!!r.sellerActive,sellerCreatedAt:r.sellerCreatedAt instanceof Date?r.sellerCreatedAt.toISOString():String(r.sellerCreatedAt),createdAt:r.cree_le instanceof Date?r.cree_le.toISOString():String(r.cree_le)}));
 }
 function validateListing(d) {
   const title=str(d.titre,180),cat=str(d.categorie,30),city=str(d.ville,100),country=str(d.pays||'Maroc',80),type=str(d.type_annonce||'',80),description=str(d.description,5000);
@@ -268,6 +272,21 @@ module.exports=async function handler(req,res){
       const photo=await uploadToCloudinary(d.dataUrl);
       return res.json({ok:true,url:photo.url,storage:'cloudinary'});
     }
+    if(action==='avatar'){
+      const u=await user(req),d=body(req,3000000);
+      if(typeof d.dataUrl!=='string'||d.dataUrl.length>2800000)httpError('Photo de profil trop grande (2 Mo maximum).',413);
+      const match=/^data:image\/(jpeg|png|webp);base64,([A-Za-z0-9+/=]+)$/.exec(d.dataUrl);
+      if(!match)httpError('Choisissez une image JPG, PNG ou WebP.');
+      const format='image/'+match[1],bytes=Buffer.from(match[2],'base64');
+      if(bytes.length===0||bytes.length>2*1024*1024)httpError('Photo de profil trop grande (2 Mo maximum).',413);
+      const valid=(format==='image/jpeg'&&bytes[0]===255&&bytes[1]===216&&bytes[2]===255)
+       ||(format==='image/png'&&bytes.subarray(0,8).equals(Buffer.from('89504e470d0a1a0a','hex')))
+       ||(format==='image/webp'&&bytes.toString('ascii',0,4)==='RIFF'&&bytes.toString('ascii',8,12)==='WEBP');
+      if(!valid)httpError('Le fichier ne correspond pas au format image indiqué.');
+      const picture=await uploadToCloudinary(d.dataUrl,'deal/profils');
+      await db.execute('UPDATE utilisateurs SET avatar_url=? WHERE id=?',[picture.url,u.id]);
+      return res.json({ok:true,user:{...u,avatar_url:picture.url},url:picture.url});
+    }
     if(action==='media-health'){
       const cfg=cloudinaryConfig();
       try{
@@ -323,7 +342,7 @@ module.exports=async function handler(req,res){
     if(action==='seller'){
       const id=Number(req.query.id);
       if(!Number.isInteger(id)||id<1)httpError('Profil introuvable.',404);
-      const [[seller]]=await db.execute('SELECT id,nom,ville,cree_le,actif FROM utilisateurs WHERE id=?',[id]);
+      const [[seller]]=await db.execute('SELECT id,nom,ville,avatar_url,cree_le,actif FROM utilisateurs WHERE id=?',[id]);
       if(!seller)httpError('Profil introuvable.',404);
       const ads=await listings("a.statut='active' AND a.utilisateur_id=?",[id],100);
       return res.json({ok:true,seller,annonces:ads});

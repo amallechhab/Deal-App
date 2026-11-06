@@ -363,10 +363,16 @@ async function initProduct() {
   document.querySelector('.verified')?.remove();
   document.querySelector('.product-tag')?.remove();
   const sellerPicture=document.querySelector('.seller-card > img');
-  if(sellerPicture){sellerPicture.alt='';sellerPicture.hidden=true;}
-  const sellerInitials=document.createElement('span');sellerInitials.className='seller-avatar';
-  sellerInitials.textContent=(selectedListing.sellerName||'D').trim()[0].toUpperCase();
-  document.querySelector('.seller-card').prepend(sellerInitials);
+  if(sellerPicture && selectedListing.sellerAvatar){
+    sellerPicture.src=selectedListing.sellerAvatar;
+    sellerPicture.alt='Photo du vendeur';
+    sellerPicture.hidden=false;
+  }else{
+    if(sellerPicture)sellerPicture.hidden=true;
+    const initials=document.createElement('span');initials.className='seller-avatar';
+    initials.textContent=(selectedListing.sellerName||'D').trim().charAt(0).toUpperCase();
+    document.querySelector('.seller-card').prepend(initials);
+  }
   const published=document.getElementById('published-date');
   if(published&&selectedListing.createdAt)published.textContent=' · Publiée le '+new Date(selectedListing.createdAt).toLocaleDateString('fr-FR');
   document.querySelector(".contact-button").addEventListener("click",async()=>{
@@ -750,42 +756,111 @@ async function initFavorites(){
  }catch(error){if(count)count.textContent='Chargement impossible.';showToast(error.message);}
 }
 
+
+function displayMemberPhoto(node,name,url){
+ if(!node)return;
+ node.replaceChildren();
+ const fallback=()=>{
+  node.replaceChildren();
+  const initials=document.createElement('span');
+  initials.textContent=(name||'D').trim().charAt(0).toUpperCase()||'D';
+  node.append(initials);
+ };
+ if(!url || !/^https:\/\/res\.cloudinary\.com\/[^/]+\/image\/upload\//.test(url)){fallback();return;}
+ const img=document.createElement('img');img.src=url;img.alt='Photo de profil';img.loading='lazy';
+ img.onerror=fallback;
+ node.append(img);
+}
+function formatMemberSince(value){
+ if(!value)return '';
+ const date=new Date(value);
+ if(Number.isNaN(date.getTime()))return '';
+ return 'Membre depuis '+date.toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
+}
 async function initSeller(){
  const id=new URLSearchParams(location.search).get('id');
  const name=document.getElementById('seller-name');
  if(!id){if(name)name.textContent='Vendeur introuvable';return;}
  try{
   const result=await api('seller',null,{id});
-  if(name)name.textContent=result.seller.nom;
-  const avatar=document.getElementById('seller-avatar');
-  if(avatar)avatar.textContent=(result.seller.nom||'D').trim().charAt(0).toUpperCase()||'D';
-  document.getElementById('seller-location').textContent='⌖ '+(result.seller.ville||'Maroc');
-  document.getElementById('seller-since').textContent='Membre depuis '+new Date(result.seller.cree_le).toLocaleDateString('fr-FR',{year:'numeric',month:'long'});
-  document.getElementById('seller-count').textContent=result.annonces.length+' annonce'+(result.annonces.length>1?'s':'');
+  const user=result.seller;
+  if(name)name.textContent=user.nom||'Vendeur DEAL';
+  displayMemberPhoto(document.getElementById('seller-avatar'),user.nom,user.avatar_url);
+  document.getElementById('seller-location').textContent='⌖ '+(user.ville||'Maroc');
+  document.getElementById('seller-since').textContent=formatMemberSince(user.cree_le);
+  document.getElementById('seller-count').textContent=result.annonces.length+' annonce'+(result.annonces.length!==1?'s':'');
+  const total=document.getElementById('seller-ads-total');if(total)total.textContent=String(result.annonces.length);
   renderListingGrid(document.getElementById('seller-listings'),result.annonces);
   const empty=document.getElementById('seller-empty');
   if(empty)empty.hidden=result.annonces.length>0;
  }catch(error){if(name)name.textContent='Profil indisponible';showToast(error.message);}
 }
-
 async function initProfile(){
- if(!session.user){showAuthNotice();return;}
- const form=document.getElementById('profile-form');
+ if(!session.user){
+  const heading=document.getElementById('profile-name');
+  if(heading)heading.textContent='Mon profil';
+  const section=document.querySelector('.deal-member-content');if(section)section.hidden=true;
+  showAuthNotice();return;
+ }
+ const form=document.getElementById('profile-form'),status=document.getElementById('profile-save-status');
+ const fileInput=document.getElementById('profile-avatar-file');
+ const photo=document.getElementById('profile-photo');
+ function updateHeader(){
+  const u=session.user;
+  document.getElementById('profile-name').textContent=u.nom;
+  document.getElementById('profile-location').textContent='⌖ '+(u.ville||'Maroc');
+  document.getElementById('profile-since').textContent=formatMemberSince(u.cree_le);
+  displayMemberPhoto(photo,u.nom,u.avatar_url);
+ }
+ updateHeader();
  form.elements.nom.value=session.user.nom;
  form.elements.ville.value=session.user.ville||'';
  document.getElementById('profile-email').textContent=session.user.email;
- const message=document.createElement('p');message.className='deal-profile-message';message.setAttribute('role','status');form.append(message);
+ try{
+  const mine=(await api('mine')).annonces;
+  document.getElementById('profile-listings-count').textContent=String(mine.length);
+  document.getElementById('profile-ads-count').textContent=mine.length+' annonce'+(mine.length!==1?'s':'')+' publiée'+(mine.length!==1?'s':'');
+  renderListingGrid(document.getElementById('profile-listings'),mine);
+  document.getElementById('profile-ads-empty').hidden=mine.length>0;
+ }catch(error){document.getElementById('profile-ads-count').textContent='Chargement indisponible';showToast(error.message);}
+ fileInput.addEventListener('change',()=>{
+  const file=fileInput.files?.[0];
+  if(!file){updateHeader();return;}
+  if(file.size>2*1024*1024 || !['image/jpeg','image/png','image/webp'].includes(file.type)){
+   fileInput.value='';status.textContent='Choisissez une photo JPG, PNG ou WebP de 2 Mo maximum.';return;
+  }
+  const preview=URL.createObjectURL(file);
+  const image=document.createElement('img');image.src=preview;image.alt='Aperçu de votre photo';
+  image.onload=()=>URL.revokeObjectURL(preview);
+  image.onerror=()=>{URL.revokeObjectURL(preview);updateHeader();};
+  photo.replaceChildren(image);
+  status.textContent='Aperçu prêt. Enregistrez le profil pour conserver cette photo.';
+ });
  form.addEventListener('submit',async event=>{
-  event.preventDefault();const button=form.querySelector('[type=submit]');button.disabled=true;
-  message.textContent='';
+  event.preventDefault();
+  const btn=form.querySelector('[type=submit]');btn.disabled=true;
+  status.textContent='Enregistrement en cours...';
   try{
-   const response=await api('profile',Object.fromEntries(new FormData(form)));
-   session.user=response.user;
-   message.textContent='Vos informations ont bien été enregistrées.';
-   const locationLabel=document.querySelector('.header-location');
-   if(locationLabel)locationLabel.textContent='⌖ '+(response.user.ville||'Maroc');
-  }catch(error){message.textContent=error.message;showToast(error.message);}
-  finally{button.disabled=false;}
+   const u=(await api('profile',{nom:form.elements.nom.value,ville:form.elements.ville.value})).user;
+   session.user=u;
+   updateHeader();
+   const file=fileInput.files?.[0];
+   if(file){
+    if(file.size>2*1024*1024 || !['image/jpeg','image/png','image/webp'].includes(file.type))throw Error('Photo invalide (2 Mo maximum).');
+    status.textContent='Envoi de la photo vers Cloudinary...';
+    const dataUrl=await new Promise((resolve,reject)=>{
+     const reader=new FileReader();reader.onload=()=>resolve(reader.result);
+     reader.onerror=()=>reject(Error('Lecture de la photo impossible.'));
+     reader.readAsDataURL(file);
+    });
+    session.user=(await api('avatar',{dataUrl})).user;
+    fileInput.value='';
+   }
+   updateHeader();
+   status.textContent='Profil enregistré avec succès.';
+   showToast('Votre profil a été mis à jour.');
+  }catch(error){status.textContent=error.message;showToast(error.message);}
+  finally{btn.disabled=false;}
  });
 }
 

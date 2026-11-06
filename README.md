@@ -31,6 +31,14 @@ Une page destinée à l'enseignant est intégrée au site : **[Le projet — Out
 - **Favoris** liés au compte MySQL ; pour un visiteur non connecté, un seul message propose la connexion sans ajouter une boîte à chaque carte.
 - Les annonces préexistantes sont conservées : les colonnes `pays` et `type_annonce` sont ajoutées par migration non destructive. Les annonces plus anciennes gardent `Maroc` par défaut.
 
+## Profils des utilisateurs
+
+- La page `profil.html` affiche la photo personnelle, le nom, la ville, la date d'inscription et les annonces actives de l'utilisateur connecté.
+- La photo de profil est **facultative** : par défaut, l'avatar utilise l'initiale du nom. Une image JPG, PNG ou WebP (maximum 2 Mo) peut être ajoutée.
+- L'API authentifiée `/api/index?action=avatar` stocke l'image dans `deal/profils` sur Cloudinary, puis enregistre l'URL HTTPS dans `utilisateurs.avatar_url` sur Aiven MySQL.
+- Le profil public `vendeur.html?id=...` montre le nom, la photo (si définie), la ville et les annonces. Il ne révèle **pas** l'e-mail personnel.
+- Les utilisateurs et annonces existants sont conservés : la migration SQL ajoute uniquement la colonne manquante.
+
 ## Architecture
 
 - Frontend : HTML5, CSS3, JavaScript (Fetch API).

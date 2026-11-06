@@ -4,7 +4,7 @@
 -- Sur Aiven, utilisez la base existante configurée dans DB_NAME.
 SET NAMES utf8mb4;
 
-CREATE TABLE IF NOT EXISTS utilisateurs (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, nom VARCHAR(100) NOT NULL, email VARCHAR(190) NOT NULL UNIQUE, mot_de_passe VARCHAR(255) NOT NULL, ville VARCHAR(100) DEFAULT NULL, actif TINYINT(1) NOT NULL DEFAULT 1, cree_le TIMESTAMP DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS utilisateurs (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, nom VARCHAR(100) NOT NULL, email VARCHAR(190) NOT NULL UNIQUE, mot_de_passe VARCHAR(255) NOT NULL, ville VARCHAR(100) DEFAULT NULL, avatar_url VARCHAR(1500) DEFAULT NULL, actif TINYINT(1) NOT NULL DEFAULT 1, cree_le TIMESTAMP DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS categories (slug VARCHAR(30) PRIMARY KEY, nom VARCHAR(80) NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -30,3 +30,8 @@ INSERT IGNORE INTO categories (slug,nom) VALUES
 -- Si vous exécutez manuellement sur une ancienne base, n'exécutez que les colonnes absentes.
 -- ALTER TABLE annonces ADD COLUMN pays VARCHAR(80) NOT NULL DEFAULT 'Maroc' AFTER ville;
 -- ALTER TABLE annonces ADD COLUMN type_annonce VARCHAR(80) NOT NULL DEFAULT '' AFTER categorie;
+
+-- Pour les bases existantes, l'API ajoute la colonne `avatar_url` aux utilisateurs
+-- via une migration non destructive au premier démarrage.
+-- La photo de profil est hébergée dans Cloudinary (dossier deal/profils),
+-- seul son lien HTTPS est enregistré en MySQL.
