@@ -14,14 +14,13 @@ Une page destinée à l'enseignant est intégrée au site : **[Le projet — Out
 | Jira | Backlog et organisation du Sprint 1 | [Board Jira DEAL](https://ikhlasbenben0709.atlassian.net/jira/software/projects/DEAL/boards/36/backlog) |
 | GitHub | Code source, historique, branches et contributeurs | [amallechhab/Deal-App](https://github.com/amallechhab/Deal-App) |
 | GitLab | Dépôt de groupe | [web-fullstack1/deal](https://gitlab.com/web-fullstack1/deal) — privé : accès à accorder à l'enseignant |
-| SonarCloud | Analyse de qualité de code | **Rapport DEAL à ajouter** : aucun résultat SonarCloud vérifié pour ce projet |
 | Vercel | Hébergement du frontend et de l'API | [Application en production](https://dealappamallechhab.vercel.app) |
 | Aiven MySQL | Comptes, annonces, favoris, messages | [Contrôle de connexion MySQL](https://dealappamallechhab.vercel.app/api/index?action=health) |
 | Cloudinary | Images des annonces | [Contrôle de connexion Cloudinary](https://dealappamallechhab.vercel.app/api/index?action=media-health) |
 
 **Accès :** Figma, Jira et GitLab peuvent être privés et demander une invitation. Ne partagez jamais de mot de passe, de jeton ou de secret d'API avec le professeur. Les contrôles de connexion prouvent que les services répondent à l'API ; ils ne prouvent pas à eux seuls la validation de chaque fonctionnalité de l'application.
 
-**À compléter avant la soutenance :** ajouter le lien réel du tableau de bord SonarCloud DEAL ou une capture d'écran vérifiable avec le résultat de l'analyse, et vérifier que le professeur peut ouvrir les espaces privés.
+**À compléter avant la soutenance :** vérifier que le professeur peut ouvrir les espaces privés (Figma, Jira et GitLab).
 
 ## Architecture
 
