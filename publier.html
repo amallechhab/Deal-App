@@ -7,7 +7,7 @@
   <title>DEAL — Publier une annonce</title>
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="deal-pages.css">
-  <script src="script.js?v=9" defer></script>
+  <script src="script.js?v=10" defer></script>
 </head>
 <body data-page="publish">
   <header class="site-header">
@@ -27,24 +27,36 @@
       <label>Prix (MAD)
         <input name="prix" type="number" step="0.01" min="1" required placeholder="6500">
       </label>
-      <label>Ville
-        <input name="ville" required maxlength="100" placeholder="Rabat">
-      </label>
-      <label>Catégorie
-        <select name="categorie" required>
-          <option value="voitures">Voitures</option>
-          <option value="immobilier">Immobilier</option>
-          <option value="telephones">Téléphones</option>
-          <option value="mode">Mode</option>
-        </select>
-      </label>
+      <div class="deal-field-pair">
+        <label>Pays
+          <select name="pays" id="publish-country" required><option value="Maroc">Maroc</option></select>
+        </label>
+        <label>Ville
+          <input name="ville" id="publish-city" list="publish-cities" required maxlength="100" placeholder="Ex : Tanger" autocomplete="off">
+          <datalist id="publish-cities"></datalist>
+        </label>
+      </div>
+      <div class="deal-field-pair">
+        <label>Catégorie
+          <select name="categorie" id="publish-category" required>
+            <option value="voitures">Voitures</option>
+            <option value="immobilier">Immobilier</option>
+            <option value="telephones">Téléphones</option>
+            <option value="mode">Mode</option>
+          </select>
+        </label>
+        <label>Type d'annonce
+          <select name="type_annonce" id="publish-type"><option value="">Choisir un type (facultatif)</option></select>
+        </label>
+      </div>
       <label>Description
         <textarea name="description" rows="4" required minlength="10" placeholder="Décrivez votre article"></textarea>
       </label>
-      <label>Photo
-        <input name="photo" type="file" accept="image/jpeg,image/png,image/webp" required><small class="deal-field-hint">JPG, PNG ou WebP · 2 Mo maximum</small><div id="photo-preview" class="deal-photo-preview" hidden aria-live="polite"></div>
+      <label>Photos
+        <input name="photo" id="publish-photos" type="file" accept="image/jpeg,image/png,image/webp" multiple required>
+        <small class="deal-field-hint">Choisissez 1 à 5 photos · JPG, PNG ou WebP · 2 Mo maximum par photo</small>
       </label>
-      <input type="hidden" name="photo1" value="">
+      <div id="photo-preview" class="deal-multi-photo-preview" hidden aria-live="polite"></div>
       <input type="hidden" name="specs" value="">
       <button class="button button-primary" id="publish-button" type="submit">Publier</button>
       <p id="message" class="publish-message" aria-live="polite"></p>

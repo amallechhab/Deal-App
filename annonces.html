@@ -8,7 +8,7 @@
   <title>DEAL — Toutes les annonces</title>
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="deal-pages.css">
-  <script src="script.js?v=9" defer></script>
+  <script src="script.js?v=10" defer></script>
 </head>
 <body data-page="listings">
   <header class="site-header">
@@ -36,6 +36,19 @@
         <button class="category-chip" type="button" data-category="mode">Mode</button>
       </div>
     </div>
+    <section class="deal-listing-filters" id="location-filters" aria-label="Filtres de recherche">
+      <label for="filter-country">Pays
+        <select id="filter-country"><option value="">Tous les pays</option><option value="Maroc">Maroc</option></select>
+      </label>
+      <label for="filter-city">Ville
+        <input id="filter-city" list="filter-cities" placeholder="Toutes les villes" autocomplete="off" maxlength="100">
+        <datalist id="filter-cities"></datalist>
+      </label>
+      <label for="filter-type">Type d'annonce
+        <select id="filter-type"><option value="">Tous les types</option></select>
+      </label>
+      <button type="button" class="button button-outline deal-clear-filters" id="clear-filters">Effacer les filtres</button>
+    </section>
     <div class="listing-grid listing-page-grid" id="listings" aria-live="polite"></div>
     <p class="empty-state" id="empty-state" hidden>Aucune annonce trouvée. Essayez une autre recherche.</p>
     <div class="trust-banner"><span class="trust-banner-icon" aria-hidden="true">✓</span><span><strong>Les bonnes affaires, en toute confiance.</strong><small>Chaque annonce vous rapproche d’une belle découverte.</small></span></div>

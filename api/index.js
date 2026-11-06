@@ -5,7 +5,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { randomBytes, randomUUID, scryptSync, createHmac, timingSafeEqual } = require('node:crypto');
 
-const catNames = { voitures: 'Voitures', immobilier: 'Immobilier', telephones: 'Téléphones', mode: 'Mode' };
+const catNames = {"voitures":"Voitures","motos":"Motos & deux-roues","immobilier":"Immobilier","telephones":"Téléphones","informatique":"Informatique","electronique":"Électronique","mode":"Mode & accessoires","maison":"Maison & décoration","electromenager":"Électroménager","sport":"Sport & loisirs","enfants":"Enfants & bébés","livres":"Livres & études","services":"Services","emploi":"Emploi","autres":"Autres"};
+const citySuggestions = {"Maroc":["Casablanca","Rabat","Tanger","Marrakech","Fès","Agadir","Meknès","Oujda","Tétouan","Salé","Kénitra","Mohammedia","El Jadida","Safi","Nador","Al Hoceïma","Larache","Ksar El Kébir","Asilah","Taza","Béni Mellal","Khouribga","Settat","Berrechid","Essaouira","Ouarzazate","Errachidia","Dakhla","Laâyoune","Ifrane","Chefchaouen","Berkane","Tiznit","Taroudant","Guelmim","Taourirt","Sidi Slimane","Sidi Kacem"],"France":["Paris","Marseille","Lyon","Toulouse","Bordeaux","Lille","Nice","Nantes","Strasbourg","Montpellier"],"Espagne":["Madrid","Barcelone","Valence","Séville","Malaga","Bilbao"],"Portugal":["Lisbonne","Porto","Braga"],"Belgique":["Bruxelles","Anvers","Liège"],"Allemagne":["Berlin","Francfort","Munich","Hambourg"],"Italie":["Rome","Milan","Turin","Naples"],"Pays-Bas":["Amsterdam","Rotterdam","La Haye"],"Suisse":["Genève","Zurich","Lausanne"],"Royaume-Uni":["Londres","Manchester","Birmingham"],"Canada":["Montréal","Toronto","Québec","Ottawa"],"États-Unis":["New York","Los Angeles","Miami","Chicago"],"Turquie":["Istanbul","Ankara","Izmir"],"Émirats arabes unis":["Dubaï","Abou Dabi"],"Tunisie":["Tunis","Sfax","Sousse"],"Algérie":["Alger","Oran","Constantine"],"Sénégal":["Dakar","Thiès"],"Mauritanie":["Nouakchott","Nouadhibou"]};
+const typeSuggestions = {"voitures":["Citadine","Berline","SUV & 4x4","Utilitaire","Pièces auto"],"motos":["Moto","Scooter","Vélo","Accessoires"],"immobilier":["Appartement","Maison","Terrain","Local commercial","Location"],"telephones":["Smartphone","Tablette","Accessoires"],"informatique":["Ordinateur portable","PC fixe","Écran","Composants","Accessoires"],"electronique":["TV","Console","Photo & vidéo","Audio","Autres appareils"],"mode":["Vêtements","Chaussures","Sacs","Bijoux","Accessoires"],"maison":["Meubles","Décoration","Jardinage","Literie"],"electromenager":["Réfrigérateur","Machine à laver","Cuisine","Climatisation"],"sport":["Fitness","Camping","Vélo","Jeux","Instruments"],"enfants":["Poussettes","Jouets","Vêtements enfants","Puériculture"],"livres":["Livres","Manuels scolaires","Fournitures","Formations"],"services":["Réparation","Transport","Cours particuliers","Beauté","Autres services"],"emploi":["Offre d'emploi","Recherche d'emploi","Stage"],"autres":["Objet à vendre","Objet recherché","Divers"]};
 const fallbackPhoto = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent("<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"900\" height=\"600\" viewBox=\"0 0 900 600\"><rect width=\"900\" height=\"600\" fill=\"#f5f1e8\"/><rect x=\"240\" y=\"200\" width=\"420\" height=\"200\" rx=\"28\" fill=\"#dfe9e3\"/><text x=\"450\" y=\"325\" font-family=\"Arial,sans-serif\" font-weight=\"bold\" font-size=\"58\" text-anchor=\"middle\" fill=\"#295b49\">DEAL</text></svg>");
 const cookieName = 'deal_session';
 const sessionSeconds = 60 * 60 * 24 * 7;
@@ -28,12 +30,12 @@ function cloudinaryConfig() {
 function cloudinaryAuth(cfg) {
   return 'Basic '+Buffer.from(cfg.key+':'+cfg.secret).toString('base64');
 }
-async function uploadToCloudinary(dataUrl) {
+async function uploadToCloudinary(dataUrl,folder='deal/annonces') {
   const cfg=cloudinaryConfig();
   const uploadUrl='https://api.cloudinary.com/v1_1/'+encodeURIComponent(cfg.cloudName)+'/image/upload';
   const data=new FormData();
   data.set('file',dataUrl);
-  data.set('folder','deal/annonces');
+  data.set('folder',folder);
   data.set('public_id',randomUUID());
   data.set('overwrite','false');
   let response;
@@ -122,9 +124,9 @@ async function setup() {
       const db = database();
       await backupLegacyTable(db);
       const statements = [
-        "CREATE TABLE IF NOT EXISTS utilisateurs (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, nom VARCHAR(100) NOT NULL, email VARCHAR(190) NOT NULL UNIQUE, mot_de_passe VARCHAR(255) NOT NULL, ville VARCHAR(100) DEFAULT NULL, actif TINYINT(1) NOT NULL DEFAULT 1, cree_le TIMESTAMP DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+        "CREATE TABLE IF NOT EXISTS utilisateurs (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, nom VARCHAR(100) NOT NULL, email VARCHAR(190) NOT NULL UNIQUE, mot_de_passe VARCHAR(255) NOT NULL, ville VARCHAR(100) DEFAULT NULL, avatar_url VARCHAR(1500) DEFAULT NULL, actif TINYINT(1) NOT NULL DEFAULT 1, cree_le TIMESTAMP DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
         "CREATE TABLE IF NOT EXISTS categories (slug VARCHAR(30) PRIMARY KEY, nom VARCHAR(80) NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
-        "CREATE TABLE IF NOT EXISTS annonces (id VARCHAR(80) PRIMARY KEY, utilisateur_id INT UNSIGNED NOT NULL, categorie VARCHAR(30) NOT NULL, titre VARCHAR(180) NOT NULL, prix DECIMAL(12,2) NOT NULL, ville VARCHAR(100) NOT NULL, description TEXT NOT NULL, alt_photo VARCHAR(255) DEFAULT '', statut ENUM('active','retiree') NOT NULL DEFAULT 'active', cree_le TIMESTAMP DEFAULT CURRENT_TIMESTAMP, INDEX idx_statut (statut), INDEX idx_categorie (categorie), FOREIGN KEY (utilisateur_id) REFERENCES utilisateurs(id), FOREIGN KEY (categorie) REFERENCES categories(slug)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+        "CREATE TABLE IF NOT EXISTS annonces (id VARCHAR(80) PRIMARY KEY, utilisateur_id INT UNSIGNED NOT NULL, categorie VARCHAR(30) NOT NULL, type_annonce VARCHAR(80) DEFAULT '', titre VARCHAR(180) NOT NULL, prix DECIMAL(12,2) NOT NULL, ville VARCHAR(100) NOT NULL, pays VARCHAR(80) NOT NULL DEFAULT 'Maroc', description TEXT NOT NULL, alt_photo VARCHAR(255) DEFAULT '', statut ENUM('active','retiree') NOT NULL DEFAULT 'active', cree_le TIMESTAMP DEFAULT CURRENT_TIMESTAMP, INDEX idx_statut (statut), INDEX idx_categorie (categorie), FOREIGN KEY (utilisateur_id) REFERENCES utilisateurs(id), FOREIGN KEY (categorie) REFERENCES categories(slug)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
         "CREATE TABLE IF NOT EXISTS photos_annonces (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, annonce_id VARCHAR(80) NOT NULL, url VARCHAR(1500) NOT NULL, position TINYINT UNSIGNED NOT NULL, UNIQUE KEY unique_photo_position (annonce_id,position), FOREIGN KEY (annonce_id) REFERENCES annonces(id) ON DELETE CASCADE) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
         "CREATE TABLE IF NOT EXISTS caracteristiques (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, annonce_id VARCHAR(80) NOT NULL, valeur VARCHAR(100) NOT NULL, position TINYINT UNSIGNED NOT NULL, UNIQUE KEY unique_spec_position (annonce_id,position), FOREIGN KEY (annonce_id) REFERENCES annonces(id) ON DELETE CASCADE) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
         "CREATE TABLE IF NOT EXISTS images_upload (id VARCHAR(36) PRIMARY KEY, utilisateur_id INT UNSIGNED NOT NULL, format VARCHAR(20) NOT NULL, image_data MEDIUMBLOB NOT NULL, cree_le TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (utilisateur_id) REFERENCES utilisateurs(id) ON DELETE CASCADE) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
@@ -132,6 +134,15 @@ async function setup() {
         "CREATE TABLE IF NOT EXISTS messages (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, annonce_id VARCHAR(80) NOT NULL, expediteur_id INT UNSIGNED NOT NULL, destinataire_id INT UNSIGNED NOT NULL, contenu TEXT NOT NULL, cree_le TIMESTAMP DEFAULT CURRENT_TIMESTAMP, INDEX idx_destinataire (destinataire_id,cree_le), FOREIGN KEY (annonce_id) REFERENCES annonces(id) ON DELETE CASCADE, FOREIGN KEY (expediteur_id) REFERENCES utilisateurs(id), FOREIGN KEY (destinataire_id) REFERENCES utilisateurs(id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
       ];
       for (const sql of statements) await db.query(sql);
+      // Additive avatar migration: never remove an existing user or profile.
+      const [userColumns]=await db.query('SHOW COLUMNS FROM utilisateurs');
+      if(!userColumns.some(c=>c.Field==='avatar_url'))
+        await db.query('ALTER TABLE utilisateurs ADD COLUMN avatar_url VARCHAR(1500) DEFAULT NULL AFTER ville');
+      // Migration additive: keeps every existing listing intact.
+      const [cols]=await db.query('SHOW COLUMNS FROM annonces');
+      const present=new Set(cols.map(c=>c.Field));
+      if(!present.has('pays'))await db.query("ALTER TABLE annonces ADD COLUMN pays VARCHAR(80) NOT NULL DEFAULT 'Maroc' AFTER ville");
+      if(!present.has('type_annonce'))await db.query("ALTER TABLE annonces ADD COLUMN type_annonce VARCHAR(80) NOT NULL DEFAULT '' AFTER categorie");
       for (const [slug, nom] of Object.entries(catNames)) await db.execute('INSERT IGNORE INTO categories (slug,nom) VALUES (?,?)', [slug,nom]);
       await db.execute("INSERT IGNORE INTO utilisateurs (nom,email,mot_de_passe,ville,actif) VALUES ('Vendeur démonstration','demo-deal@example.invalid','!desactive!','Casablanca',0)");
       const [[demo]] = await db.execute("SELECT id FROM utilisateurs WHERE email='demo-deal@example.invalid'");
@@ -187,13 +198,13 @@ function parseSession(req) {
 }
 async function optionalUser(req){
   const id=parseSession(req); if(!id)return null;
-  const [[u]]=await database().execute('SELECT id,nom,email,ville FROM utilisateurs WHERE id=? AND actif=1',[id]);
+  const [[u]]=await database().execute('SELECT id,nom,email,ville,avatar_url,cree_le FROM utilisateurs WHERE id=? AND actif=1',[id]);
   return u||null;
 }
 async function user(req){const u=await optionalUser(req);if(!u)httpError('Connectez-vous pour continuer.',401);return u;}
 async function listings(where="a.statut='active'",params=[],limit=100){
   const db=database();
-  const [items]=await db.execute("SELECT a.id,a.utilisateur_id,a.categorie,a.titre,a.prix,a.ville,a.description,a.alt_photo,a.cree_le,c.nom AS categoryLabel,u.nom AS sellerName,u.actif AS sellerActive,u.cree_le AS sellerCreatedAt FROM annonces a JOIN categories c ON c.slug=a.categorie JOIN utilisateurs u ON u.id=a.utilisateur_id WHERE "+where+" ORDER BY a.cree_le DESC,a.id ASC LIMIT "+Math.min(Math.max(1,limit),100),params);
+  const [items]=await db.execute("SELECT a.id,a.utilisateur_id,a.categorie,a.type_annonce,a.titre,a.prix,a.ville,a.pays,a.description,a.alt_photo,a.cree_le,c.nom AS categoryLabel,u.nom AS sellerName,u.avatar_url AS sellerAvatar,u.actif AS sellerActive,u.cree_le AS sellerCreatedAt FROM annonces a JOIN categories c ON c.slug=a.categorie JOIN utilisateurs u ON u.id=a.utilisateur_id WHERE "+where+" ORDER BY a.cree_le DESC,a.id ASC LIMIT "+Math.min(Math.max(1,limit),100),params);
   if(!items.length)return [];
   const qs=items.map(()=>'?').join(',');
   const [photos]=await db.query('SELECT annonce_id,url FROM photos_annonces WHERE annonce_id IN ('+qs+') ORDER BY position',items.map(x=>x.id));
@@ -201,21 +212,21 @@ async function listings(where="a.statut='active'",params=[],limit=100){
   const groupedPhotos={};const groupedSpecs={};
   for(const p of photos)(groupedPhotos[p.annonce_id]??=[]).push(p.url);
   for(const s of specs)(groupedSpecs[s.annonce_id]??=[]).push(s.valeur);
-  return items.map(r=>({id:r.id,cat:r.categorie,categoryLabel:r.categoryLabel,title:r.titre,price:new Intl.NumberFormat('fr-FR',{maximumFractionDigits:0}).format(r.prix)+' MAD',priceNumber:Number(r.prix),city:r.ville,description:r.description,alt:r.alt_photo||r.titre,photos:groupedPhotos[r.id]||[fallbackPhoto],specs:groupedSpecs[r.id]||[],sellerId:r.utilisateur_id,sellerName:r.sellerName,sellerActive:!!r.sellerActive,sellerCreatedAt:r.sellerCreatedAt instanceof Date?r.sellerCreatedAt.toISOString():String(r.sellerCreatedAt),createdAt:r.cree_le instanceof Date?r.cree_le.toISOString():String(r.cree_le)}));
+  return items.map(r=>({id:r.id,cat:r.categorie,categoryLabel:r.categoryLabel,title:r.titre,price:new Intl.NumberFormat('fr-FR',{maximumFractionDigits:0}).format(r.prix)+' MAD',priceNumber:Number(r.prix),city:r.ville,country:r.pays||'Maroc',type:r.type_annonce||'',description:r.description,alt:r.alt_photo||r.titre,photos:groupedPhotos[r.id]||[fallbackPhoto],specs:groupedSpecs[r.id]||[],sellerId:r.utilisateur_id,sellerName:r.sellerName,sellerAvatar:r.sellerAvatar||'',sellerActive:!!r.sellerActive,sellerCreatedAt:r.sellerCreatedAt instanceof Date?r.sellerCreatedAt.toISOString():String(r.sellerCreatedAt),createdAt:r.cree_le instanceof Date?r.cree_le.toISOString():String(r.cree_le)}));
 }
 function validateListing(d) {
-  const title=str(d.titre,180),cat=str(d.categorie,30),city=str(d.ville,100),description=str(d.description,5000);
+  const title=str(d.titre,180),cat=str(d.categorie,30),city=str(d.ville,100),country=str(d.pays||'Maroc',80),type=str(d.type_annonce||'',80),description=str(d.description,5000);
   const price=Number(d.prix);
-  if(title.length<3||city.length<2||description.length<10) httpError('Complétez le titre, la ville et la description.');
+  if(title.length<3||city.length<2||country.length<2||description.length<10) httpError('Complétez le titre, la ville et la description.');
   if(!/^[a-z0-9-]{2,30}$/.test(cat)) httpError('Catégorie invalide.');
   if(!Number.isFinite(price)||price<1||price>9999999999) httpError('Prix invalide.');
-  const photos=[d.photo1,d.photo2,d.photo3].filter(Boolean).map(url=>{const s=str(url,1500);if(!/^\/api\/index\?action=photo&id=[a-z0-9-]{36}$/.test(s)){
+  const photos=[d.photo1,d.photo2,d.photo3,d.photo4,d.photo5].filter(Boolean).map(url=>{const s=str(url,1500);if(!/^\/api\/index\?action=photo&id=[a-z0-9-]{36}$/.test(s)){
         try{const u=new URL(s);if(!['http:','https:'].includes(u.protocol))httpError('Lien de photo invalide.');}
         catch{httpError('Lien de photo invalide.');}
       }return s;});
   const specs=str(d.specs||'',1000).split(',').map(s=>s.trim()).filter(Boolean).slice(0,3);
   if(specs.some(s=>s.length>100))httpError('Caractéristique trop longue.');
-  return {title,cat,city,description,price,photos,specs};
+  return {title,cat,city,country,type,description,price,photos,specs};
 }
 async function replaceDetails(conn,id,item){
   await conn.execute('DELETE FROM photos_annonces WHERE annonce_id=?',[id]);
@@ -261,6 +272,21 @@ module.exports=async function handler(req,res){
       const photo=await uploadToCloudinary(d.dataUrl);
       return res.json({ok:true,url:photo.url,storage:'cloudinary'});
     }
+    if(action==='avatar'){
+      const u=await user(req),d=body(req,3000000);
+      if(typeof d.dataUrl!=='string'||d.dataUrl.length>2800000)httpError('Photo de profil trop grande (2 Mo maximum).',413);
+      const match=/^data:image\/(jpeg|png|webp);base64,([A-Za-z0-9+/=]+)$/.exec(d.dataUrl);
+      if(!match)httpError('Choisissez une image JPG, PNG ou WebP.');
+      const format='image/'+match[1],bytes=Buffer.from(match[2],'base64');
+      if(bytes.length===0||bytes.length>2*1024*1024)httpError('Photo de profil trop grande (2 Mo maximum).',413);
+      const valid=(format==='image/jpeg'&&bytes[0]===255&&bytes[1]===216&&bytes[2]===255)
+       ||(format==='image/png'&&bytes.subarray(0,8).equals(Buffer.from('89504e470d0a1a0a','hex')))
+       ||(format==='image/webp'&&bytes.toString('ascii',0,4)==='RIFF'&&bytes.toString('ascii',8,12)==='WEBP');
+      if(!valid)httpError('Le fichier ne correspond pas au format image indiqué.');
+      const picture=await uploadToCloudinary(d.dataUrl,'deal/profils');
+      await db.execute('UPDATE utilisateurs SET avatar_url=? WHERE id=?',[picture.url,u.id]);
+      return res.json({ok:true,user:{...u,avatar_url:picture.url},url:picture.url});
+    }
     if(action==='media-health'){
       const cfg=cloudinaryConfig();
       try{
@@ -281,13 +307,30 @@ module.exports=async function handler(req,res){
     if(action==='health'){const [[n]]=await db.execute('SELECT COUNT(*) AS n FROM annonces');return res.json({ok:true,database:'connected',annonces:Number(n.n)});}
     if(action==='categories'){
       const [rows]=await db.query('SELECT slug,nom FROM categories ORDER BY nom');
-      return res.json({ok:true,categories:rows});
+      const order=Object.keys(catNames);
+      rows.sort((a,b)=>order.indexOf(a.slug)-order.indexOf(b.slug));
+      return res.json({ok:true,categories:rows,types:typeSuggestions});
+    }
+    if(action==='locations'){
+      const [rows]=await db.query("SELECT DISTINCT pays,ville FROM annonces WHERE statut='active' AND ville<>'' LIMIT 500");
+      const countries=Object.keys(citySuggestions);
+      const cities=Object.fromEntries(countries.map(country=>[country,[...citySuggestions[country]]]));
+      for(const row of rows){
+        const country=row.pays||'Maroc';
+        if(!cities[country]){cities[country]=[];countries.push(country);}
+        if(row.ville && !cities[country].includes(row.ville))cities[country].push(row.ville);
+      }
+      return res.json({ok:true,countries,cities});
     }
     if(action==='list'){
       const cat=str(req.query.category||'all',30),q=str(req.query.q||'',120);
+      const country=str(req.query.pays||'',80),city=str(req.query.ville||'',100),type=str(req.query.type||'',80);
       let where="a.statut='active'",params=[];
       if(cat!=='all'){if(!/^[a-z0-9-]{2,30}$/.test(cat))httpError('Catégorie invalide.');where+=' AND a.categorie=?';params.push(cat);}
-      if(q){where+=' AND (a.titre LIKE ? OR a.ville LIKE ? OR c.nom LIKE ?)';params.push('%'+q+'%','%'+q+'%','%'+q+'%');}
+      if(country){where+=' AND a.pays=?';params.push(country);}
+      if(city){where+=' AND a.ville LIKE ?';params.push('%'+city+'%');}
+      if(type){where+=' AND a.type_annonce=?';params.push(type);}
+      if(q){where+=' AND (a.titre LIKE ? OR a.ville LIKE ? OR a.pays LIKE ? OR a.type_annonce LIKE ? OR c.nom LIKE ?)';params.push(...Array(5).fill('%'+q+'%'));}
       return res.json({ok:true,annonces:await listings(where,params)});
     }
     if(action==='detail'){
@@ -299,7 +342,7 @@ module.exports=async function handler(req,res){
     if(action==='seller'){
       const id=Number(req.query.id);
       if(!Number.isInteger(id)||id<1)httpError('Profil introuvable.',404);
-      const [[seller]]=await db.execute('SELECT id,nom,ville,cree_le,actif FROM utilisateurs WHERE id=?',[id]);
+      const [[seller]]=await db.execute('SELECT id,nom,ville,avatar_url,cree_le,actif FROM utilisateurs WHERE id=?',[id]);
       if(!seller)httpError('Profil introuvable.',404);
       const ads=await listings("a.statut='active' AND a.utilisateur_id=?",[id],100);
       return res.json({ok:true,seller,annonces:ads});
@@ -343,6 +386,7 @@ module.exports=async function handler(req,res){
       const d=body(req),u=await user(req),item=validateListing(d);
       const [[existingCategory]]=await db.execute('SELECT slug FROM categories WHERE slug=?',[item.cat]);
       if(!existingCategory)httpError('Catégorie inconnue.');
+      if(item.type && typeSuggestions[item.cat] && !typeSuggestions[item.cat].includes(item.type))httpError('Type non disponible pour cette catégorie.');
       let id;
       if(action==='update'){
         id=str(d.id,80);
@@ -352,8 +396,9 @@ module.exports=async function handler(req,res){
       const conn=await db.getConnection();
       try{
         await conn.beginTransaction();
-        if(action==='publish')await conn.execute('INSERT INTO annonces (id,utilisateur_id,categorie,titre,prix,ville,description,alt_photo) VALUES (?,?,?,?,?,?,?,?)',[id,u.id,item.cat,item.title,item.price,item.city,item.description,item.title]);
-        else await conn.execute("UPDATE annonces SET categorie=?,titre=?,prix=?,ville=?,description=? WHERE id=? AND utilisateur_id=? AND statut='active'",[item.cat,item.title,item.price,item.city,item.description,id,u.id]);
+        if(action==='publish' && !item.photos.length)httpError('Ajoutez au moins une photo.');
+        if(action==='publish')await conn.execute('INSERT INTO annonces (id,utilisateur_id,categorie,type_annonce,titre,prix,ville,pays,description,alt_photo) VALUES (?,?,?,?,?,?,?,?,?,?)',[id,u.id,item.cat,item.type,item.title,item.price,item.city,item.country,item.description,item.title]);
+        else await conn.execute("UPDATE annonces SET categorie=?,type_annonce=?,titre=?,prix=?,ville=?,pays=?,description=? WHERE id=? AND utilisateur_id=? AND statut='active'",[item.cat,item.type,item.title,item.price,item.city,item.country,item.description,id,u.id]);
         await replaceDetails(conn,id,item);await conn.commit();
       }catch(e){await conn.rollback();throw e;}finally{conn.release();}
       return res.json({ok:true,id});
