@@ -1,1 +1,26 @@
-<!DOCTYPE html><html lang="fr"><head><title>DEAL — Messages</title><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#f5f1e8"><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="deal-pages.css"><script src="script.js?v=8" defer></script></head><body data-page="messages"><header class="site-header"><a class="brand" href="index.html"><span class="wordmark">deal<span>.</span></span></a><nav class="main-nav"><a href="index.html">Accueil</a><a href="annonces.html">Annonces</a></nav><div class="header-actions"><a class="button button-outline header-login" href="connexion.html">Se connecter</a></div></header><main class="page-shell deal-extra"><section class="deal-panel"><h1>Messages reçus</h1><p>Les messages concernant vos annonces.</p><div id="messages-list" class="deal-message-list"></div></section></main><footer class="site-footer"><a class="brand" href="index.html">DEAL</a><p>Les bonnes affaires au Maroc.</p><span>© 2026 DEAL</span></footer><div class="toast" id="toast" role="status"></div></body></html>
+<!DOCTYPE html>
+<html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#f5f1e8"><meta name="description" content="Consultez vos messages au sujet des annonces sur DEAL."><title>DEAL — Messagerie</title><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="deal-pages.css"><script src="script.js?v=9" defer></script></head>
+<body data-page="messages">
+<header class="site-header">
+  <a class="brand" href="index.html" aria-label="DEAL, accueil"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none"><path d="M10 18.5a16 16 0 0 1 26-6l3 3.5M38 8v8h-8M38 29.5a16 16 0 0 1-26 6L9 32m0 8v-8h8" /><path d="m18 25 4 4 9-11" /></svg></span><span class="wordmark">deal<span>.</span></span></a>
+  <nav class="main-nav" aria-label="Navigation principale">
+    <a href="index.html">Accueil</a>
+    <a href="annonces.html">Annonces</a>
+    <a href="publier.html">Publier</a>
+  </nav>
+  <div class="header-actions"><span class="header-location">⌖ Maroc</span><a class="button button-outline header-login" href="connexion.html">Se connecter</a></div>
+</header>
+<main class="page-shell deal-extra">
+<div class="breadcrumbs"><a href="index.html">Accueil</a><span>/</span><span>Messages</span></div>
+<section class="deal-panel deal-narrow">
+ <div class="deal-page-heading"><p class="eyebrow">VOS ÉCHANGES</p><h1>Messagerie</h1><p>Consultez les messages envoyés et reçus à propos des annonces.</p></div>
+ <div id="messages-list" class="deal-message-list" aria-live="polite"><p class="deal-count">Chargement des messages...</p></div>
+ <div id="messages-empty" class="deal-empty" hidden><span class="deal-empty-icon" aria-hidden="true">✉</span><h2>Aucun message pour l'instant</h2><p>Consultez une annonce et contactez son vendeur pour démarrer une conversation.</p><a class="button button-primary" href="annonces.html">Parcourir les annonces</a></div>
+</section></main>
+<footer class="site-footer">
+ <a class="brand footer-brand" href="index.html" aria-label="Retour à l'accueil"><span class="wordmark">deal<span>.</span></span></a>
+ <nav class="deal-footer-links" aria-label="Navigation de pied de page"><a href="index.html">Accueil</a><a href="annonces.html">Annonces</a><a href="publier.html">Publier</a></nav>
+ <span>© 2026 DEAL · Projet de formation</span>
+</footer>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body></html>
