@@ -458,15 +458,6 @@ function initNavigation(){
  const nav=document.querySelector('.main-nav');
  const loginLink=document.querySelector('.header-login');
  const actions=document.querySelector('.header-actions');
- const locationLabel=document.querySelector('.header-location');
- if(locationLabel){
-   const link=document.createElement('a');
-   link.href='annonces.html#location-filters';
-   link.className='deal-location-link';
-   link.title='Choisir un pays et une ville';
-   link.textContent='⌖ Pays / ville ▾';
-   locationLabel.replaceChildren(link);
- }
  const currentPage=location.pathname.split('/').pop()||'index.html';
  if(nav){
   nav.querySelectorAll('a').forEach(a=>{
