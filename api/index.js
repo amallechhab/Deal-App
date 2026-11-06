@@ -9,6 +9,58 @@ const catNames = { voitures: 'Voitures', immobilier: 'Immobilier', telephones: '
 const fallbackPhoto = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent("<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"900\" height=\"600\" viewBox=\"0 0 900 600\"><rect width=\"900\" height=\"600\" fill=\"#f5f1e8\"/><rect x=\"240\" y=\"200\" width=\"420\" height=\"200\" rx=\"28\" fill=\"#dfe9e3\"/><text x=\"450\" y=\"325\" font-family=\"Arial,sans-serif\" font-weight=\"bold\" font-size=\"58\" text-anchor=\"middle\" fill=\"#295b49\">DEAL</text></svg>");
 const cookieName = 'deal_session';
 const sessionSeconds = 60 * 60 * 24 * 7;
+
+function cloudinaryConfig() {
+  const raw=process.env.CLOUDINARY_URL;
+  if(!raw)httpError('Cloudinary non configuré sur Vercel.',503);
+  try {
+    const uri=new URL(raw);
+    if(uri.protocol!=='cloudinary:' || !uri.username || !uri.password || !/^[a-z0-9_-]+$/i.test(uri.hostname)) throw Error('invalid config');
+    return {
+      cloudName:uri.hostname,
+      key:decodeURIComponent(uri.username),
+      secret:decodeURIComponent(uri.password)
+    };
+  }catch {
+    httpError('Configuration Cloudinary invalide. Vérifiez CLOUDINARY_URL sur Vercel.',503);
+  }
+}
+function cloudinaryAuth(cfg) {
+  return 'Basic '+Buffer.from(cfg.key+':'+cfg.secret).toString('base64');
+}
+async function uploadToCloudinary(dataUrl) {
+  const cfg=cloudinaryConfig();
+  const uploadUrl='https://api.cloudinary.com/v1_1/'+encodeURIComponent(cfg.cloudName)+'/image/upload';
+  const data=new FormData();
+  data.set('file',dataUrl);
+  data.set('folder','deal/annonces');
+  data.set('public_id',randomUUID());
+  data.set('overwrite','false');
+  let response;
+  try {
+    response=await fetch(uploadUrl,{
+      method:'POST',
+      headers:{Authorization:cloudinaryAuth(cfg)},
+      body:data,
+      signal:AbortSignal.timeout(25000)
+    });
+  } catch(err) {
+    console.error('Cloudinary network:',err?.name||'network error');
+    httpError('Service photos temporairement indisponible.',503);
+  }
+  if(!response.ok){
+    console.error('Cloudinary upload HTTP:',response.status);
+    httpError('Impossible de téléverser la photo vers Cloudinary.',502);
+  }
+  const result=await response.json();
+  const url=result.secure_url;
+  if(typeof url!=='string'||!url.startsWith('https://res.cloudinary.com/'+cfg.cloudName+'/image/upload/')) {
+    console.error('Cloudinary response URL invalid');
+    httpError('Réponse invalide du service photos.',502);
+  }
+  return {url,public_id:result.public_id};
+}
+
 let pool;
 let initialized;
 
@@ -206,9 +258,25 @@ module.exports=async function handler(req,res){
        ||(format==='image/png'&&bytes.subarray(0,8).equals(Buffer.from('89504e470d0a1a0a','hex')))
        ||(format==='image/webp'&&bytes.toString('ascii',0,4)==='RIFF'&&bytes.toString('ascii',8,12)==='WEBP');
       if(!valid)httpError('Le fichier ne correspond pas au format image indiqué.');
-      const id=randomUUID();
-      await db.execute('INSERT INTO images_upload (id,utilisateur_id,format,image_data) VALUES (?,?,?,?)',[id,u.id,format,bytes]);
-      return res.json({ok:true,url:'/api/index?action=photo&id='+id});
+      const photo=await uploadToCloudinary(d.dataUrl);
+      return res.json({ok:true,url:photo.url,storage:'cloudinary'});
+    }
+    if(action==='media-health'){
+      const cfg=cloudinaryConfig();
+      try{
+        const response=await fetch('https://api.cloudinary.com/v1_1/'+encodeURIComponent(cfg.cloudName)+'/resources/image?max_results=1',{
+          headers:{Authorization:cloudinaryAuth(cfg)},
+          signal:AbortSignal.timeout(10000)
+        });
+        if(!response.ok){
+          console.error('Cloudinary admin HTTP:',response.status);
+          return res.status(503).json({ok:false,cloudinary:'unavailable'});
+        }
+        return res.json({ok:true,cloudinary:'connected'});
+      }catch(err){
+        console.error('Cloudinary admin request:',err?.name||'error');
+        return res.status(503).json({ok:false,cloudinary:'unavailable'});
+      }
     }
     if(action==='health'){const [[n]]=await db.execute('SELECT COUNT(*) AS n FROM annonces');return res.json({ok:true,database:'connected',annonces:Number(n.n)});}
     if(action==='categories'){
