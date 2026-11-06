@@ -140,3 +140,46 @@
 .deal-profile-message{margin:8px 0 0;font-size:.83rem;color:var(--navy);min-height:1em;line-height:1.5}
 .deal-message-actions .text-link:hover{text-decoration:underline}
 .deal-results-grid .listing-card{min-width:0}
+
+
+/* Teacher-facing project methodology, aligned with the original DEAL identity */
+.deal-tools-page{padding-bottom:72px}
+.deal-tools-hero{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(270px,.7fr);align-items:center;gap:clamp(22px,5vw,75px);padding:15px 0 48px}
+.deal-tools-hero h1{margin:0;max-width:690px;color:var(--ink);font-size:clamp(2.65rem,5vw,4.15rem);font-weight:750;line-height:1.08;letter-spacing:-.052em}
+.deal-tools-hero>div>p:not(.eyebrow){max-width:640px;color:#777885;font-size:.98rem;line-height:1.75;margin:18px 0 24px}
+.deal-tools-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.deal-tech-summary{background:#fff;border:1px solid #e7e1d9;border-radius:21px;box-shadow:var(--shadow);padding:26px 24px}
+.deal-architecture{display:grid;justify-items:center;gap:11px}
+.deal-architecture>span:not(:nth-child(even)),.deal-architecture>div>span{display:block;padding:12px 14px;width:100%;border:1px solid #dfe4ef;border-radius:11px;background:#f2f5f9;color:var(--navy);font-size:.85rem;font-weight:700;text-align:center}
+.deal-architecture>span:nth-child(even){font-size:1.2rem;color:#8c9cb7}
+.deal-architecture>div{display:grid;grid-template-columns:1fr 1fr;gap:9px;width:100%}
+.deal-architecture>div>span{background:#faf8f4;border-color:#e5e1d9;font-size:.74rem;line-height:1.5}
+.deal-tools-section{padding:24px 0 35px}
+.deal-tools-title{display:flex;align-items:center;gap:13px;margin:0 0 19px}
+.deal-tools-number{display:grid;place-items:center;width:36px;height:36px;border-radius:11px;background:var(--soft-blue);color:var(--navy);font-size:.83rem;font-weight:800}
+.deal-tools-title h2{margin:0;color:var(--ink);font-size:clamp(1.35rem,2.5vw,1.8rem);letter-spacing:-.032em}
+.deal-tools-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.deal-tool-card{display:flex;flex-direction:column;align-items:flex-start;min-height:221px;padding:24px 22px;border:1px solid #e7e2dc;border-radius:17px;background:var(--paper);box-shadow:0 6px 25px rgb(40 41 57 / 4%);transition:transform .15s ease,border-color .15s ease}
+.deal-tool-card:hover{transform:translateY(-3px);border-color:#cbd7e9}
+.deal-tool-head{display:flex;align-items:center;gap:11px}
+.deal-tool-mark{display:grid;place-items:center;width:39px;height:39px;flex-shrink:0;border-radius:12px;background:var(--soft-blue);color:var(--navy);font-size:1.1rem;font-weight:800}
+.deal-tool-head h3{margin:0;color:var(--ink);font-size:1.06rem}
+.deal-tool-card>p{margin:16px 0 17px;font-size:.84rem;line-height:1.65;color:#656b7a}
+.deal-tool-link{color:var(--navy);font-size:.83rem;font-weight:750;text-decoration:none;margin-top:auto}
+.deal-tool-link:hover{text-decoration:underline}
+.deal-tool-link span{margin-left:4px}
+.deal-tool-unconfirmed{margin-top:auto;color:#8e7580;font-size:.81rem;font-weight:700}
+.deal-tool-card>small{display:block;font-size:.7rem;line-height:1.5;color:#898b95;margin-top:12px}
+.deal-tools-note{margin:10px 0 32px;padding:20px 23px;border-left:3px solid #8da9cb;background:#faf9f6;border-radius:0 12px 12px 0}
+.deal-tools-note h2{margin:0 0 8px;font-size:1.05rem;color:var(--ink)}
+.deal-tools-note p{margin:0;color:#777986;line-height:1.65;font-size:.81rem}
+.deal-tools-cta{display:flex;align-items:center;justify-content:space-between;gap:25px;padding:27px 30px;border-radius:18px;background:#e9eef5}
+.deal-tools-cta h2{margin:0 0 8px;color:var(--ink);font-size:1.5rem}
+.deal-tools-cta p:not(.eyebrow){margin:0;color:#707589;font-size:.83rem;line-height:1.55}
+.deal-tools-cta>.button{flex-shrink:0}
+.deal-home-project{display:flex;align-items:center;justify-content:space-between;gap:22px;padding:24px 28px;margin:16px 0 32px;border:1px solid #e0e1e5;border-radius:16px;background:#fff}
+.deal-home-project h2{margin:3px 0 7px;color:var(--ink);font-size:1.42rem;letter-spacing:-.03em}
+.deal-home-project p:not(.eyebrow){margin:0;color:#85858e;font-size:.83rem;line-height:1.55}
+.deal-home-project .button{flex-shrink:0}
+@media(max-width:960px){.deal-tools-hero{grid-template-columns:1fr;gap:22px}.deal-tech-summary{max-width:600px}.deal-tools-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:650px){.site-header .main-nav{gap:16px}.deal-tools-hero{padding-bottom:25px}.deal-tools-hero h1{font-size:2.48rem}.deal-tools-actions .button{flex:1 1 auto}.deal-tech-summary{padding:18px}.deal-tools-grid{grid-template-columns:1fr}.deal-tool-card{min-height:0;padding:20px}.deal-tools-section{padding-bottom:24px}.deal-tools-cta,.deal-home-project{flex-direction:column;align-items:flex-start;padding:22px}.deal-tools-cta>.button,.deal-home-project .button{width:100%}.deal-tools-page{padding-bottom:46px}}
