@@ -396,7 +396,7 @@ module.exports=async function handler(req,res){
       const conn=await db.getConnection();
       try{
         await conn.beginTransaction();
-        if(action==='publish' && !item.photos.length)httpError('Ajoutez au moins une photo.');
+        if(!item.photos.length)httpError('Conservez ou ajoutez au moins une photo.');
         if(action==='publish')await conn.execute('INSERT INTO annonces (id,utilisateur_id,categorie,type_annonce,titre,prix,ville,pays,description,alt_photo) VALUES (?,?,?,?,?,?,?,?,?,?)',[id,u.id,item.cat,item.type,item.title,item.price,item.city,item.country,item.description,item.title]);
         else await conn.execute("UPDATE annonces SET categorie=?,type_annonce=?,titre=?,prix=?,ville=?,pays=?,description=? WHERE id=? AND utilisateur_id=? AND statut='active'",[item.cat,item.type,item.title,item.price,item.city,item.country,item.description,id,u.id]);
         await replaceDetails(conn,id,item);await conn.commit();
