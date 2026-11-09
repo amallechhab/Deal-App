@@ -856,13 +856,16 @@ async function initProfile(){
 }
 
 (async()=>{
+ // Always bind authentication forms, even if the initial session request fails.
+ // Otherwise the buttons look functional but submit without any feedback.
+ if(page==='login')initLogin();
+ if(page==='signup')initSignup();
  try{
   const state=await api('session');
   session={user:state.user,favorites:state.favorites||[]};
   initNavigation();
 
-  if(page==='login'){initLogin();return;}
-  if(page==='signup'){initSignup();return;}
+  if(page==='login'||page==='signup')return;
   if(page==='publish'){await initPublish();return;}
   ANNONCES=(await api('list')).annonces;
   if(page==='home')await initHome();
@@ -873,5 +876,13 @@ async function initProfile(){
    if(page==='favorites')await initFavorites();
    if(page==='seller')await initSeller();
    if(page==='profile')await initProfile();
- }catch(err){showToast(err.message);const container=document.getElementById('listings');if(container)container.textContent='Service indisponible. Rechargez la page.';}
+ }catch(err){
+  showToast(err.message);
+  const container=document.getElementById('listings');
+  if(container)container.textContent='Service indisponible. Rechargez la page.';
+  if(page==='publish'){
+    const notice=document.getElementById('publish-notice')||document.querySelector('.deal-form-error');
+    if(notice){notice.textContent='Connexion au serveur impossible : '+err.message;notice.classList.add('is-error');}
+  }
+ }
 })();
